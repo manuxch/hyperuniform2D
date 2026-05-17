@@ -178,9 +178,15 @@ The simulation is controlled via an external text file. Its format is `key: valu
 | `cooling_rate`    | real   | Cooling multiplier (0 < factor < 1)                                         | 0.999               |
 | `steps_per_temp`  | integer| Number of swap attempts at each temperature level                           | 1000                |
 | `seed`         | integer| Random seed (for reproducibility)                                           | 42                  |
+| `num_threads`  | integer| Number of threads for concurrent execution                           | 0                |
 | `output_file`  | string | Output PGM file name                                                        | hiperuniform.pgm   |
 | `annealing_file`  | string | Annealing algorithm progression                                                        | annealing.dat   |
 | `sk_file`  | string | Resulting S(k)                                                         | sk.dat   |
 
 ### Example `params.in`
 
+### References
+
+- Torquato, S., & Stillinger, F. H. (2003). Local density fluctuations, hyperuniformity, and order metrics. Physical Review E, 68(4), 041113. [https://doi.org/10.1103/PhysRevE.68.041113](https://doi.org/10.1103/PhysRevE.68.041113).
+- Robert D. Batten, Frank H. Stillinger, Salvatore Torquato; Classical disordered ground states: Super-ideal gases and stealth and equi-luminous materials. J. Appl. Phys. 1 August 2008; 104 (3): 033504. [https://doi.org/10.1063/1.2961314](https://doi.org/10.1063/1.2961314).
+- Chase E Zachary and Salvatore Torquato J. Stat. Mech. (2009) P12015. [https://doi.org/10.1088/1742-5468/2009/12/P12015](https://doi.org/10.1088/1742-5468/2009/12/P12015).
