@@ -127,7 +127,7 @@ A configuration with $E = 0$ is perfectly hyperuniform within the suppressed ran
 
 2. **Mask construction**: All wave vectors $\mathbf{k} \neq \mathbf{0}$ with magnitude less than or equal to \(K\) are selected. For each one, phase factors are precomputed.
 
-3. **Initial Fourier transform**: $`\hat{\rho}(\mathbf{k})`$ is evaluated for all modes in the mask.
+3. **Initial Fourier transform**: $\\hat{\rho}(\\mathbf{k})$ is evaluated for all modes in the mask.
 
 4. **Simulated annealing**:
    - At each step, a random occupied site and a random empty site are chosen, and an exchange is proposed.
