@@ -140,9 +140,9 @@ is evaluated for all modes in the mask.
    - The change in energy $Delta E$ is computed using an incremental update of the Fourier coefficients.
    - The swap is accepted according to the Metropolis criterion:
 
-     $$
-     P_{\text{accept}} = \min\left(1, e^{-\Delta E / T}\right),
-     $$
+$$
+P_{\text{accept}} = \min\left(1, e^{-\Delta E / T}\right),
+$$
    
     where $T$ is the current temperature.
    - The temperature is gradually reduced by a user-specified cooling factor.
