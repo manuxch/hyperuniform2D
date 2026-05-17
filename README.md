@@ -144,7 +144,7 @@ $$
 P_{\text{accept}} = \min\left(1, e^{-\Delta E / T}\right),
 $$
    
-    where $T$ is the current temperature.
+  where $T$ is the current temperature.
    - The temperature is gradually reduced by a user-specified cooling factor.
 
 5. **Result**: After a sufficient number of steps, a binary configuration with near-zero energy is obtained — the long-wavelength modes are suppressed and the system exhibits hyperuniformity.
