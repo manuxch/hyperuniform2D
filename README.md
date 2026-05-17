@@ -94,7 +94,7 @@ $$
 \qquad \mathbf{k} = \frac{2\pi}{N}(k_x, k_y), \quad k_x,k_y \in \mathbb{Z}.
 $$
 
-The structure factor is defined as $S(\mathbf{k}) = \frac{1}{N^2} |\hat{\rho}(\mathbf{k})|^2$.
+The structure factor is defined as $ S(\mathbf{k}) = \frac{1}{N^2} |\hat{\rho}(\mathbf{k})|^2 $.
 
 ### Stealthy hyperuniformity condition
 
