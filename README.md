@@ -2,7 +2,7 @@
 
 Generator for hyperuniform points in a 2D square grid
 
-This repository contains a C++20 program that generates **binary hyperuniform distributions** on an \(N \times N\) square lattice. The optimization is carried out via **Metropolis simulated annealing**, minimizing an energy based on the structure factor \(S(\mathbf{k})\).
+This repository contains a C++20 program that generates **binary hyperuniform distributions** on an $N \times N$ square lattice. The optimization is carried out via **Metropolis simulated annealing**, minimizing an energy based on the structure factor $S(\mathbf{k})$.
 
 The output is a configuration of occupied/empty sites that suppresses large-scale density fluctuations — a fundamental property of disordered systems with hidden order, relevant in photonics, granular materials, and biology.
 
@@ -71,66 +71,66 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## What is a hyperuniform distribution?
 
-A point pattern (or binary occupation) is said to be **hyperuniform** if the variance of the number of particles within an observation window grows more slowly than the window volume as the window size increases. Equivalently, its **structure factor** \(S(\mathbf{k})\) tends to zero as the wave vector \(\mathbf{k}\) approaches zero:
+A point pattern (or binary occupation) is said to be **hyperuniform** if the variance of the number of particles within an observation window grows more slowly than the window volume as the window size increases. Equivalently, its **structure factor** $S(\mathbf{k})$ tends to zero as the wave vector $\mathbf{k}$ approaches zero:
 
-\[
+$$
 \lim_{|\mathbf{k}|\to 0} S(\mathbf{k}) = 0.
-\]
+$$
 
-A perfectly periodic system (like a crystal) has \(S(\mathbf{k})=0\) away from the Bragg peaks, so a crystal is hyperuniform. However, hyperuniformity can also occur in **disordered** systems, where particles appear randomly distributed but possess long-range correlations that cancel large-scale fluctuations.
+A perfectly periodic system (like a crystal) has $S(\mathbf{k})=0$ away from the Bragg peaks, so a crystal is hyperuniform. However, hyperuniformity can also occur in **disordered** systems, where particles appear randomly distributed but possess long-range correlations that cancel large-scale fluctuations.
 
-This program generates a special type of disordered hyperuniform system known as **“stealthy” hyperuniform**, in which the structure factor is **exactly zero** for all wave vectors with \(|\mathbf{k}| \le K\), where \(K\) is a user-defined exclusion radius.
+This program generates a special type of disordered hyperuniform system known as **“stealthy” hyperuniform**, in which the structure factor is **exactly zero** for all wave vectors with $|\mathbf{k}| \le K$, where $K$ is a user-defined exclusion radius.
 
 ## Mathematical foundation
 
 ### System representation
 
-We consider an \(N \times N\) square lattice with periodic boundary conditions. Each site \(\mathbf{r} = (x, y)\) can be occupied (`1`) or empty (`0`). The occupation fraction is \(\rho = M/N^2\), where \(M\) is the total number of occupied sites.
+We consider an $N \times N$ square lattice with periodic boundary conditions. Each site $\mathbf{r} = (x, y)$ can be occupied (`1`) or empty (`0`). The occupation fraction is $\rho = M/N^2$, where $M$ is the total number of occupied sites.
 
 The discrete Fourier transform of the occupation is:
 
-\[
+$$
 \hat{\rho}(\mathbf{k}) = \sum_{\mathbf{r}} s(\mathbf{r}) \, e^{-i \mathbf{k} \cdot \mathbf{r}},
 \qquad \mathbf{k} = \frac{2\pi}{N}(k_x, k_y), \quad k_x,k_y \in \mathbb{Z}.
-\]
+$$
 
-The structure factor is defined as \( S(\mathbf{k}) = \frac{1}{N^2} |\hat{\rho}(\mathbf{k})|^2 \).
+The structure factor is defined as $ S(\mathbf{k}) = \frac{1}{N^2} |\hat{\rho}(\mathbf{k})|^2 $.
 
 ### Stealthy hyperuniformity condition
 
-To achieve \(S(\mathbf{k}) \to 0\) as \(\mathbf{k} \to 0\), we explicitly constrain all modes with \(0 < |\mathbf{k}| \leq K\) (in units of \(2\pi/N\)). The condition \(S(\mathbf{k}) = 0\) in that region is equivalent to requiring the Fourier coefficients \(\hat{\rho}(\mathbf{k})\) to vanish.
+To achieve $S(\mathbf{k}) \to 0$ as $\mathbf{k} \to 0$, we explicitly constrain all modes with $0 < |\mathbf{k}| \leq K$ (in units of $2\pi/N$). The condition $S(\mathbf{k}) = 0$ in that region is equivalent to requiring the Fourier coefficients $\hat{\rho}(\mathbf{k})$ to vanish.
 
 ### Optimization problem
 
 We define an **energy** that penalizes the presence of Fourier modes within the selected mask:
 
-\[
+$$
 E = \sum_{\substack{\mathbf{k} \neq \mathbf{0} \\ |\mathbf{k}| \le K}} |\hat{\rho}(\mathbf{k})|^2.
-\]
+$$
 
-A configuration with \(E = 0\) is perfectly hyperuniform within the suppressed range (up to finite-size effects). Because the search space is discrete and huge, we resort to **simulated annealing** to find near-zero-energy configurations.
+A configuration with $E = 0$ is perfectly hyperuniform within the suppressed range (up to finite-size effects). Because the search space is discrete and huge, we resort to **simulated annealing** to find near-zero-energy configurations.
 
 ## Algorithm
 
-1. **Initialization**: \(M\) particles are placed randomly on the lattice, respecting the target density.
+1. **Initialization**: $M$ particles are placed randomly on the lattice, respecting the target density.
 
-2. **Mask construction**: All wave vectors \(\mathbf{k} \neq \mathbf{0}\) with magnitude less than or equal to \(K\) are selected. For each one, phase factors are precomputed.
+2. **Mask construction**: All wave vectors $\mathbf{k} \neq \mathbf{0}$ with magnitude less than or equal to \(K\) are selected. For each one, phase factors are precomputed.
 
-3. **Initial Fourier transform**: \(\hat{\rho}(\mathbf{k})\) is evaluated for all modes in the mask.
+3. **Initial Fourier transform**: $\hat{\rho}(\mathbf{k})$ is evaluated for all modes in the mask.
 
 4. **Simulated annealing**:
    - At each step, a random occupied site and a random empty site are chosen, and an exchange is proposed.
    - The change in energy \(\Delta E\) is computed using an incremental update of the Fourier coefficients.
    - The swap is accepted according to the Metropolis criterion:
-     \[
+     $$
      P_{\text{accept}} = \min\left(1, e^{-\Delta E / T}\right),
-     \]
-     where \(T\) is the current temperature.
+     $$
+     where $T$ is the current temperature.
    - The temperature is gradually reduced by a user-specified cooling factor.
 
 5. **Result**: After a sufficient number of steps, a binary configuration with near-zero energy is obtained — the long-wavelength modes are suppressed and the system exhibits hyperuniformity.
 
-The program saves the final configuration as a PGM (grayscale) image and prints the residual structure factor along the \(k_x\) axis to verify mode suppression.
+The program saves the final configuration as a PGM (grayscale) image and prints the residual structure factor along the $k_x$ axis to verify mode suppression.
 
 ## Parameter file
 
