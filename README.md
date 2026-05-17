@@ -95,6 +95,7 @@ $$
 $$
 
 The structure factor is defined as 
+
 $$
 S(\mathbf{k}) = \frac{1}{N^2} |\hat{\rho}(\mathbf{k})|^2
 $$
