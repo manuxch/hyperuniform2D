@@ -80,7 +80,7 @@ The simulation generates three main output files (names can be configured in `pa
 
 The PGM image is stored in plain text format (magic number P2). Occupied sites (1) are shown as white pixels, and empty sites (0) as black pixels. If you prefer the opposite coloring (black for occupied, white for empty), you can invert the image using ImageMagick:
 
-    convert input.pgm -negate -compress none output.pgm
+    magick input.pgm -negate -compress none output.pgm
 
 The `-compress none` option keeps the output in human‑readable PGM text format.
 
