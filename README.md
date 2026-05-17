@@ -102,7 +102,14 @@ $$
 
 ### Stealthy hyperuniformity condition
 
-To achieve $S(\mathbf{k}) \to 0$ as $\mathbf{k} \to 0$, we explicitly constrain all modes with $0 < |\mathbf{k}| \leq K$ (in units of $2\pi/N$). The condition $S(\mathbf{k}) = 0$ in that region is equivalent to requiring the Fourier coefficients $\hat{\rho}(\mathbf{k})$ to vanish.
+To achieve $S(\mathbf{k}) \to 0$ as $\mathbf{k} \to 0$, we explicitly constrain all modes with $0 < |\mathbf{k}| \leq K$ (in units of $2\pi/N$). The condition $S(\mathbf{k}) = 0$ in that region is equivalent to requiring the Fourier coefficients 
+
+$$
+\hat{\rho}(\mathbf{k})
+$$
+
+to vanish.
+
 
 ### Optimization problem
 
