@@ -26,10 +26,10 @@ cmake --build build --parallel
 
 ## Usage
 
-After compilation, the executable `hyper` will be located in the `build/` directory. The program takes a single optional argument: the path to the parameter configuration file. If no argument is provided, it defaults to `params.in`.
+After compilation, the executable `hyper2D` will be located in the `build/` directory. The program takes a single optional argument: the path to the parameter configuration file. If no argument is provided, it defaults to `params.in`.
 
 ```bash
-./build/hyper params.in
+./build/hyper2D params.in
 ```
 
 ### Configuration File (`params.in`)
@@ -84,9 +84,6 @@ The PGM image is stored in plain text format (magic number P2). Occupied sites (
 
 The `-compress none` option keeps the output in human‑readable PGM text format.
 
-
-convert input.pgm -negate -compress none output.pgm
-
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
@@ -112,7 +109,7 @@ We consider an $N \times N$ square lattice with periodic boundary conditions. Ea
 The discrete Fourier transform of the occupation is:
 
 $$
-\hat{\rho}(\mathbf{k}) = \sum_{\mathbf{r}} s(\mathbf{r}) \, e^{-i \mathbf{k} \cdot \mathbf{r}},
+\hat{\rho}(\mathbf{k}) = \sum_{\mathbf{r}} s(\mathbf{r})  e^{-i \mathbf{k} \cdot \mathbf{r}},
 \qquad \mathbf{k} = \frac{2\pi}{N}(k_x, k_y), \quad k_x,k_y \in \mathbb{Z}.
 $$
 
@@ -159,7 +156,7 @@ is evaluated for all modes in the mask.
 
 4. **Simulated annealing**:
    - At each step, a random occupied site and a random empty site are chosen, and an exchange is proposed.
-   - The change in energy $Delta E$ is computed using an incremental update of the Fourier coefficients.
+   - The change in energy $\Delta E$ is computed using an incremental update of the Fourier coefficients.
    - The swap is accepted according to the Metropolis criterion:
 
 $$
