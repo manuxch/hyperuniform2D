@@ -2,14 +2,17 @@
 #include "fourier.hpp"
 #include "constants.hpp"
 
+#include "thread_pool.hpp"
+
 #include <cmath>
 #include <complex>
 #include <format>
 #include <fstream>
 #include <iostream>
 #include <optional>
+#include <memory>
 
-std::optional<double> attempt_swap(HyperuniformConfig& config, double T) {
+std::optional<double> attempt_swap(HyperuniformConfig& config, double T, ThreadPool* pool) {
     const int N = config.N;
 
     // Distributions stored in config — not recreated per call
@@ -23,18 +26,23 @@ std::optional<double> attempt_swap(HyperuniformConfig& config, double T) {
     const int xj = j % N, yj = j / N;
     const auto num_modes = config.modes.size();
 
-    // Use pre-allocated delta_buffer — no new/delete per call
-    for (std::size_t m = 0; m < num_modes; ++m) {
-        const auto [kx, ky] = config.modes[m];
-        const double theta_j = -2.0 * PI * (kx * xj + ky * yj) / N;
-        const double theta_i = -2.0 * PI * (kx * xi + ky * yi) / N;
-        config.delta_buffer[m] = std::polar(1.0, theta_j) - std::polar(1.0, theta_i);
-    }
-
     double deltaE = 0.0;
-    for (std::size_t m = 0; m < num_modes; ++m) {
-        deltaE += 2.0 * std::real(std::conj(config.FT[m]) * config.delta_buffer[m])
-                + std::norm(config.delta_buffer[m]);
+    if (pool && num_modes >= 100) {
+        // Evaluate in parallel if we have enough modes to justify it
+        deltaE = pool->parallel_reduce_delta_E(config, xi, yi, xj, yj);
+    } else {
+        // Sequential fallback
+        for (std::size_t m = 0; m < num_modes; ++m) {
+            const auto [kx, ky] = config.modes[m];
+            const double theta_j = -2.0 * PI * (kx * xj + ky * yj) / N;
+            const double theta_i = -2.0 * PI * (kx * xi + ky * yi) / N;
+            config.delta_buffer[m] = std::polar(1.0, theta_j) - std::polar(1.0, theta_i);
+        }
+
+        for (std::size_t m = 0; m < num_modes; ++m) {
+            deltaE += 2.0 * std::real(std::conj(config.FT[m]) * config.delta_buffer[m])
+                    + std::norm(config.delta_buffer[m]);
+        }
     }
 
     // Metropolis criterion
@@ -60,6 +68,16 @@ void simulated_annealing(HyperuniformConfig& config, const Parameters& p) {
     long long attempts = 0;
     long long accepted = 0;
 
+    std::unique_ptr<ThreadPool> pool;
+
+    // Initialize ThreadPool if requested
+    if (config.modes.size() >= 100 && p.num_threads != 1) {
+        pool = std::make_unique<ThreadPool>(p.num_threads);
+        std::cout << std::format("Initialized thread pool with {} threads.\n", pool->get_thread_count());
+    } else if (p.num_threads == 1 || config.modes.size() < 100) {
+        std::cout << "Using sequential mode (threads=1 or modes < 100).\n";
+    }
+
     // Incremental accumulator: avoids recalculating energy O(|modes|) at each T step
     double E_current = energy(config);
 
@@ -76,7 +94,7 @@ void simulated_annealing(HyperuniformConfig& config, const Parameters& p) {
     while (T > T_final) {
         for (int step = 0; step < steps; ++step) {
             ++attempts;
-            if (auto dE = attempt_swap(config, T)) {
+            if (auto dE = attempt_swap(config, T, pool.get())) {
                 ++accepted;
                 E_current += *dE;
             }

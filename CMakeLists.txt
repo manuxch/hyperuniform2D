@@ -19,14 +19,18 @@ set(SOURCES
     src/fourier.cpp
     src/annealing.cpp
     src/io.cpp
+    src/thread_pool.cpp
 )
 
-add_executable(hyper ${SOURCES})
+add_executable(hyper2D ${SOURCES})
 
-target_include_directories(hyper PRIVATE include)
+target_include_directories(hyper2D PRIVATE include)
+
+find_package(Threads REQUIRED)
+target_link_libraries(hyper2D PRIVATE Threads::Threads)
 
 # ── Opciones de compilación ──────────────────────────────────────────────────
-target_compile_options(hyper PRIVATE
+target_compile_options(hyper2D PRIVATE
     $<$<CXX_COMPILER_ID:GNU,Clang>:
         -Wall -Wextra -Wpedantic
         $<$<CONFIG:Release>:-O3 -march=native>
@@ -39,7 +43,7 @@ target_compile_options(hyper PRIVATE
 )
 
 # Address/UB sanitizers también necesitan el flag en el linker
-target_link_options(hyper PRIVATE
+target_link_options(hyper2D PRIVATE
     $<$<AND:$<CXX_COMPILER_ID:GNU,Clang>,$<CONFIG:Debug>>:
         -fsanitize=address,undefined
     >

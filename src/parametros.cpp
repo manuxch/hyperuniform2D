@@ -49,6 +49,8 @@ bool Parameters::read(const std::string &filename) {
            }},
           {"seed",
            [&](std::string_view v) { seed = std::stoi(std::string(v)); }},
+          {"num_threads",
+           [&](std::string_view v) { num_threads = std::stoi(std::string(v)); }},
           {"output_file",
            [&](std::string_view v) { output_file = std::string(v); }},
           {"annealing_file",
@@ -94,10 +96,11 @@ void Parameters::print() const {
         "  cooling_rate      = {}\n"
         "  steps_per_temp    = {}\n"
         "  seed              = {}\n"
+        "  num_threads       = {}\n"
         "  output_file       = {}\n"
         "  annealing_file    = {}\n"
         "  sk_file           = {}\n",
         N, density, K, T_initial, T_final, cooling_rate,
-        steps_per_temp, seed,
+        steps_per_temp, seed, num_threads,
         output_file, annealing_file, sk_file);
 }

@@ -51,11 +51,22 @@ cooling_rate: 0.999
 steps_per_temp: 1000
 # Random seed
 seed: 1729
+# Number of threads (0 = auto-detect, 1 = sequential strict)
+num_threads: 0
 # Output files
 output_file: hyperuniform.pgm
 annealing_file: annealing.dat
 sk_file: sk.dat
 ```
+
+
+### Multithreading
+
+The code features a highly optimized, native C++20 thread pool using `std::barrier` to accelerate the evaluation of the structure factor modes.
+
+- Set `num_threads: 0` to automatically detect and use all available hardware threads.
+- Set `num_threads: 1` to strictly enforce sequential execution.
+- **Smart Fallback**: Even if multiple threads are requested, the program will automatically fallback to sequential execution if the number of evaluated modes is small ($< 100$). This ensures maximum performance by avoiding synchronization overhead on small workloads.
 
 ### Output Files
 

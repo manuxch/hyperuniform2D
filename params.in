@@ -12,6 +12,8 @@ cooling_rate: 0.999
 steps_per_temp: 1000
 # Random seed
 seed: 1729
+# Number of threads (0 = auto, 1 = sequential)
+num_threads: 0
 # Output files
 output_file: hyperuniform.pgm
 annealing_file: annealing.dat
