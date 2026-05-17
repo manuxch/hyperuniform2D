@@ -1,0 +1,18 @@
+# Hyperuniform simulation parameters
+# Grid size
+N: 64
+# Occupation fraction
+density: 0.4
+# Exclusion radius (in units of 2π/N)
+K: 4.0
+# Simulated annealing parameters
+T_initial: 10.0
+T_final: 0.01
+cooling_rate: 0.999
+steps_per_temp: 1000
+# Random seed
+seed: 1729
+# Output files
+output_file: hyperuniform.pgm
+annealing_file: annealing.dat
+sk_file: sk.dat

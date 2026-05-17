@@ -66,4 +66,7 @@ vcpkg_installed/
 
 # test output & cache
 Testing/
+
+# run directory 
+run/
 .cache/
