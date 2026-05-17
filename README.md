@@ -127,16 +127,24 @@ A configuration with $E = 0$ is perfectly hyperuniform within the suppressed ran
 
 2. **Mask construction**: All wave vectors $\mathbf{k} \neq \mathbf{0}$ with magnitude less than or equal to \(K\) are selected. For each one, phase factors are precomputed.
 
-3. **Initial Fourier transform**: $\\hat{\rho}(\\mathbf{k})$ is evaluated for all modes in the mask.
+3. **Initial Fourier transform**: 
+
+$$
+\hat{\rho}(\mathbf{k})
+$$ 
+
+is evaluated for all modes in the mask.
 
 4. **Simulated annealing**:
    - At each step, a random occupied site and a random empty site are chosen, and an exchange is proposed.
-   - The change in energy \(\Delta E\) is computed using an incremental update of the Fourier coefficients.
+   - The change in energy $Delta E$ is computed using an incremental update of the Fourier coefficients.
    - The swap is accepted according to the Metropolis criterion:
+
      $$
      P_{\text{accept}} = \min\left(1, e^{-\Delta E / T}\right),
      $$
-     where $T$ is the current temperature.
+   
+    where $T$ is the current temperature.
    - The temperature is gradually reduced by a user-specified cooling factor.
 
 5. **Result**: After a sufficient number of steps, a binary configuration with near-zero energy is obtained — the long-wavelength modes are suppressed and the system exhibits hyperuniformity.
