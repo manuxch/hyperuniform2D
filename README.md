@@ -84,6 +84,10 @@ The PGM image is stored in plain text format (magic number P2). Occupied sites (
 
 The `-compress none` option keeps the output in human‑readable PGM text format.
 
+### Output image sample 
+
+![Image sample](hyperuniform.pgm)
+
 ## Hyperuniformity Analysis Tool
 
 This Python script evaluates whether a 2D point distribution—extracted from a text-based PGM image (P2 format)—exhibits **hyperuniformity**. By employing a random window-sampling method with Periodic Boundary Conditions (PBC), the script tracks how the number variance ($\sigma_N^2$) and density variance ($\sigma_\rho^2$) scale as a function of the observation radius $R$. 
@@ -103,6 +107,11 @@ You can optionally increase the number of random sampling windows per radius (de
 ```bash
 python3 test_hypper2D.py path/to/your_image.pgm --samples 5000
 ``` 
+
+### Ouput analysis image
+
+
+![Image sample](HU-400x400-02.png)
 
 ## License
 
