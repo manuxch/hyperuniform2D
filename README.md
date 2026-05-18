@@ -86,6 +86,8 @@ The `-compress none` option keeps the output in human‑readable PGM text format
 
 ### Output image sample 
 
+$400 \times 400$, density = $0.2$
+
 ![Image sample](hyperuniform.png)
 
 ## Hyperuniformity Analysis Tool
@@ -108,7 +110,26 @@ You can optionally increase the number of random sampling windows per radius (de
 python3 test_hypper2D.py path/to/your_image.pgm --samples 5000
 ``` 
 
-### Ouput analysis image
+### Ouput analysis sample
+
+```bash
+Reading file: hyperuniform.pgm...
+Image detected: 400x400. Center at: (200.0, 200.0)
+32000 points detected in the distribution.
+Density: 0.2000
+Calculating density fluctuations (Sampling with PBC)...
+
+============================================================
+               EXPERIMENTAL FIT RESULTS
+============================================================
+-> Exponent of var_N (alpha)  : 0.984
+   [Poisson = 2.00 | Hyperuniform < 2.00 (e.g. ~ 1.00)]
+-> Exponent of var_rho (beta) : -3.016
+   [Poisson = -2.00 | Hyperuniform < -2.00 (e.g. ~ -3.00)]
+============================================================
+
+Showing interactive plots...
+```
 
 
 ![Image sample](HU-400x400-02.png)
