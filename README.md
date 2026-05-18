@@ -101,7 +101,7 @@ python3 test_hyper2D path/to/your_image.pgm
 You can optionally increase the number of random sampling windows per radius (default is 1000) to achieve higher statistical accuracy:
 
 ```bash
-python3  hyperuniformity_check.py path/to/your_image.pgm --samples 5000
+python3 test_hypper2D.py path/to/your_image.pgm --samples 5000
 ``` 
 
 ## License
