@@ -86,7 +86,7 @@ The `-compress none` option keeps the output in human‑readable PGM text format
 
 ### Output image sample 
 
-![Image sample](hyperuniform.pgm)
+![Image sample](hyperuniform.png)
 
 ## Hyperuniformity Analysis Tool
 
