@@ -11,7 +11,7 @@ struct Parameters {
     double      T_final           = 0.01;
     double      cooling_rate      = 0.999;
     int         steps_per_temp    = 1000;
-    int         seed              = 42;
+    int         seed              = 1729;
     int         num_threads       = 0;  ///< 0 means auto-detect, 1 means sequential
     std::string output_file       = "hyperuniform.pgm";
     std::string annealing_file    = "annealing.dat";  ///< T/E/rate monitoring per step

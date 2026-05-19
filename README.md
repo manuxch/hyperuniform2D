@@ -235,7 +235,7 @@ The simulation is controlled via an external text file. Its format is `key: valu
 | `T_final`         | real   | Final temperature (stopping criterion)                                      | 0.01                |
 | `cooling_rate`    | real   | Cooling multiplier (0 < factor < 1)                                         | 0.999               |
 | `steps_per_temp`  | integer| Number of swap attempts at each temperature level                           | 1000                |
-| `seed`         | integer| Random seed (for reproducibility)                                           | 42                  |
+| `seed`         | integer| Random seed (for reproducibility)                                           | 1729                  |
 | `num_threads`  | integer| Number of threads for concurrent execution                           | 0                |
 | `output_file`  | string | Output PGM file name                                                        | hiperuniform.pgm   |
 | `annealing_file`  | string | Annealing algorithm progression                                                        | annealing.dat   |
