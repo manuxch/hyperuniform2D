@@ -3,7 +3,22 @@
 import argparse
 import sys
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
+
+
+params = {'lines.linewidth': 2.0,
+        'axes.labelsize': 10,
+        'font.size': 10,
+        'legend.fontsize': 10,
+        'xtick.labelsize': 15,
+        'ytick.labelsize': 15,
+        'figure.subplot.left':0.01,
+        'figure.subplot.right':0.99,
+        'figure.subplot.top':0.95,
+        'figure.subplot.bottom':0.05,
+        'text.usetex': True}
+matplotlib.rcParams.update(params)
 
 def read_pgm_p2(filename):
     """Reads a PGM file in text mode (P2) ignoring comments."""
@@ -120,25 +135,25 @@ def main():
 
     # Plot 1: Variance of Number of Points
     plt.subplot(1, 2, 1)
-    plt.loglog(radii, var_N, 'o', color='blue', label='Measured data')
+    plt.loglog(radii, var_N, 'o', color='blue', label=r'Measured data')
     plt.loglog(radii, fit_N, 'b-', label=fr'Experimental Fit ($\alpha$ = {alpha:.2f})')
     plt.loglog(radii, (radii**2) * (var_N[0] / (radii[0]**2)), '--', color='gray', label=r'Theoretical Poisson ($R^2$)')
     plt.loglog(radii, radii * (var_N[0] / radii[0]), ':', color='red', label=r'Theoretical Hyperuniform ($R^1$)')
-    plt.xlabel('Radius (R)')
+    plt.xlabel(r'Radius (R)')
     plt.ylabel(r'Variance $\sigma_N^2$')
-    plt.title('Point Number Variance Growth')
+    plt.title(r'Point Number Variance Growth')
     plt.legend()
     plt.grid(True, which="both", ls="--")
 
     # Plot 2: Density Variance
     plt.subplot(1, 2, 2)
-    plt.loglog(radii, var_rho, 's', color='purple', label='Measured data')
+    plt.loglog(radii, var_rho, 's', color='purple', label=r'Measured data')
     plt.loglog(radii, fit_rho, 'r-', label=fr'Experimental Fit ($\beta$ = {beta:.2f})')
     plt.loglog(radii, (radii**-2) * (var_rho[0] / (radii[0]**-2)), '--', color='gray', label=r'Theoretical Poisson ($R^{-2}$)')
     plt.loglog(radii, (radii**-3) * (var_rho[0] / (radii[0]**-3)), ':', color='red', label=r'Theoretical Hyperuniform ($R^{-3}$)')
-    plt.xlabel('Radius (R)')
+    plt.xlabel(r'Radius (R)')
     plt.ylabel(r'Density Variance $\sigma_{\rho}^2$')
-    plt.title('Density Variance Decay')
+    plt.title(r'Density Variance Decay')
     plt.legend()
     plt.grid(True, which="both", ls="--")
 
