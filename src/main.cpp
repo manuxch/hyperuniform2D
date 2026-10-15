@@ -11,7 +11,18 @@
 #include <string>
 
 int main(int argc, char* argv[]) {
-    const std::string parameter_file = (argc > 1) ? argv[1] : "params.in";
+    const std::string arg = (argc > 1) ? argv[1] : "";
+    if (arg == "--version" || arg == "-v") {
+        std::cout << "hyper2D " HYPER2D_VERSION "\n";
+        return 0;
+    }
+    if (arg == "--help" || arg == "-h") {
+        std::cout << "Usage: hyper2D [parameter_file]   (default: params.in)\n"
+                     "       hyper2D --version\n";
+        return 0;
+    }
+    const std::string parameter_file = arg.empty() ? "params.in" : arg;
+    std::cout << "hyper2D " HYPER2D_VERSION "\n";
 
     Parameters p;
     if (!p.read(parameter_file)) {
@@ -55,7 +66,7 @@ int main(int argc, char* argv[]) {
                                  residual);
 
         save_PGM(config, p.output_file, {
-            "hyperuniform2D: stealthy hyperuniform pattern, 1 = occupied",
+            "hyperuniform2D " HYPER2D_VERSION ": stealthy hyperuniform pattern, 1 = occupied",
             std::format("N {} density {:.6f} occupied {}", p.N, static_cast<double>(config.M) / (static_cast<double>(p.N) * p.N), config.M),
             std::format("K {:.6g} K2 {:.6g} modes_half_plane {} chi {:.6f} chi_target {}", config.K, config.K2,
                         config.modes.size(), chi, p.chi),

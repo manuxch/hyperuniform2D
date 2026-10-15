@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(hyperuniform LANGUAGES CXX)
+project(hyperuniform VERSION 2.0.0 LANGUAGES CXX)
 
 # ── Estándar ────────────────────────────────────────────────────────────────
 set(CMAKE_CXX_STANDARD          20)
@@ -22,6 +22,7 @@ add_library(hyper2d_core STATIC
     src/thread_pool.cpp
 )
 target_include_directories(hyper2d_core PUBLIC include)
+target_compile_definitions(hyper2d_core PUBLIC HYPER2D_VERSION="${PROJECT_VERSION}")
 
 find_package(Threads REQUIRED)
 target_link_libraries(hyper2d_core PUBLIC Threads::Threads)
@@ -63,6 +64,7 @@ enable_testing()
 add_test(NAME hyper2D_unit COMMAND test_hyper2D)
 
 # ── Información al final de cmake ────────────────────────────────────────────
+message(STATUS "hyper2D    : ${PROJECT_VERSION}")
 message(STATUS "Build type : ${CMAKE_BUILD_TYPE}")
 message(STATUS "C++ standard: C++${CMAKE_CXX_STANDARD}")
 message(STATUS "Compiler   : ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
