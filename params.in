@@ -3,16 +3,23 @@
 N: 64
 # Occupation fraction
 density: 0.4
-# Exclusion radius (in units of 2π/N)
+# Mask: either the stealthiness chi (> 0, K is derived from it) ...
+chi: 0
+# ... or the exclusion radius K (in units of 2π/N), used when chi = 0
 K: 4.0
-# Simulated annealing parameters
+# Simulated annealing parameters (T_initial <= 0: automatic)
 T_initial: 10.0
 T_final: 0.01
 cooling_rate: 0.999
 steps_per_temp: 1000
+# Proposals to a nearby empty site (fraction) and their range
+local_fraction: 0.5
+local_radius: 1
+# Zero-temperature proposals after the annealing
+quench_steps: 0
 # Random seed
 seed: 1729
-# Number of threads (0 = auto, 1 = sequential)
+# Number of threads (0 = auto: min(4, available CPUs), 1 = sequential)
 num_threads: 0
 # Output files
 output_file: hyperuniform.pgm

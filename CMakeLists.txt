@@ -12,8 +12,8 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # ── Fuentes ─────────────────────────────────────────────────────────────────
-set(SOURCES
-    src/main.cpp
+# Todo salvo main.cpp va a una biblioteca estática que comparten el ejecutable y los tests.
+add_library(hyper2d_core STATIC
     src/parametros.cpp
     src/config.cpp
     src/fourier.cpp
@@ -21,33 +21,46 @@ set(SOURCES
     src/io.cpp
     src/thread_pool.cpp
 )
-
-add_executable(hyper2D ${SOURCES})
-
-target_include_directories(hyper2D PRIVATE include)
+target_include_directories(hyper2d_core PUBLIC include)
 
 find_package(Threads REQUIRED)
-target_link_libraries(hyper2D PRIVATE Threads::Threads)
+target_link_libraries(hyper2d_core PUBLIC Threads::Threads)
+
+add_executable(hyper2D src/main.cpp)
+target_link_libraries(hyper2D PRIVATE hyper2d_core)
+
+add_executable(test_hyper2D tests/test_hyper2D.cpp)
+target_link_libraries(test_hyper2D PRIVATE hyper2d_core)
+
+# -march=native optimiza para la CPU donde se compila: en un cluster, compilar en un nodo de cómputo
+# o usar -DHYPER2D_NATIVE=OFF si el binario se compila en el nodo de login y corre en otros nodos.
+option(HYPER2D_NATIVE "Compilar con -march=native en Release" ON)
 
 # ── Opciones de compilación ──────────────────────────────────────────────────
-target_compile_options(hyper2D PRIVATE
-    $<$<CXX_COMPILER_ID:GNU,Clang>:
-        -Wall -Wextra -Wpedantic
-        $<$<CONFIG:Release>:-O3 -march=native>
-        $<$<CONFIG:Debug>:-g -fsanitize=address,undefined>
-    >
-    $<$<CXX_COMPILER_ID:MSVC>:
-        /W4
-        $<$<CONFIG:Release>:/O2>
-    >
-)
+foreach(tgt hyper2d_core hyper2D test_hyper2D)
+    target_compile_options(${tgt} PRIVATE
+        $<$<CXX_COMPILER_ID:GNU,Clang>:
+            -Wall -Wextra -Wpedantic
+            $<$<CONFIG:Release>:-O3>
+            $<$<AND:$<CONFIG:Release>,$<BOOL:${HYPER2D_NATIVE}>>:-march=native>
+            $<$<CONFIG:Debug>:-g -fsanitize=address,undefined>
+        >
+        $<$<CXX_COMPILER_ID:MSVC>:
+            /W4
+            $<$<CONFIG:Release>:/O2>
+        >
+    )
+    # Address/UB sanitizers también necesitan el flag en el linker
+    target_link_options(${tgt} PRIVATE
+        $<$<AND:$<CXX_COMPILER_ID:GNU,Clang>,$<CONFIG:Debug>>:
+            -fsanitize=address,undefined
+        >
+    )
+endforeach()
 
-# Address/UB sanitizers también necesitan el flag en el linker
-target_link_options(hyper2D PRIVATE
-    $<$<AND:$<CXX_COMPILER_ID:GNU,Clang>,$<CONFIG:Debug>>:
-        -fsanitize=address,undefined
-    >
-)
+# ── Tests ────────────────────────────────────────────────────────────────────
+enable_testing()
+add_test(NAME hyper2D_unit COMMAND test_hyper2D)
 
 # ── Información al final de cmake ────────────────────────────────────────────
 message(STATUS "Build type : ${CMAKE_BUILD_TYPE}")

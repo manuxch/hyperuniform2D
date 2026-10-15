@@ -1,23 +1,62 @@
 #include "thread_pool.hpp"
-#include "constants.hpp"
+#include "fourier.hpp"
 
-#include <numeric>
+#include <algorithm>
+
+#if defined(__linux__)
+#include <sched.h>
+#endif
+
+#if defined(__x86_64__) || defined(_M_X64)
+#include <immintrin.h>
+#define HYPER2D_PAUSE() _mm_pause()
+#else
+#define HYPER2D_PAUSE() ((void)0)
+#endif
+
+void SpinBarrier::arrive_and_wait() noexcept {
+    const std::uint64_t gen = generation_.load(std::memory_order_acquire);
+    if (waiting_.fetch_add(1, std::memory_order_acq_rel) + 1 == count_) {
+        waiting_.store(0, std::memory_order_relaxed);
+        generation_.fetch_add(1, std::memory_order_release);  // releases everyone
+        return;
+    }
+    for (unsigned spins = 0; generation_.load(std::memory_order_acquire) == gen; ++spins) {
+        if (spins < 4096) HYPER2D_PAUSE();
+        else std::this_thread::yield();  // oversubscribed machine: do not starve the other threads
+    }
+}
+
+int available_cpus() {
+#if defined(__linux__)
+    // CPUs this process may run on. Under Slurm (cgroups / task affinity) this is the allocation, whereas
+    // std::thread::hardware_concurrency() reports every CPU of the node.
+    cpu_set_t set;
+    CPU_ZERO(&set);
+    if (sched_getaffinity(0, sizeof(set), &set) == 0) {
+        const int n = CPU_COUNT(&set);
+        if (n > 0) return n;
+    }
+#endif
+    const auto n = static_cast<int>(std::thread::hardware_concurrency());
+    return n > 0 ? n : 1;
+}
 
 ThreadPool::ThreadPool(int num_threads) {
-    if (num_threads <= 0) {
-        num_threads = std::thread::hardware_concurrency();
-        if (num_threads == 0) num_threads = 1;
-    }
+    // Automatic: at most 4 threads. Measured gains saturate around 2-4 threads (the proposal is short and
+    // memory-bound), and more spinning threads, especially on SMT siblings, made it slower.
+    if (num_threads <= 0) num_threads = std::min(available_cpus(), 4);
     thread_count = num_threads;
 
     if (thread_count > 1) {
-        // barrier for main thread + worker threads
-        start_barrier = std::make_unique<std::barrier<>>(thread_count + 1);
-        end_barrier = std::make_unique<std::barrier<>>(thread_count + 1);
+        // The calling thread takes chunk 0, so only thread_count - 1 workers are started: with spinning
+        // barriers, one thread more than cores would be catastrophic.
+        start_barrier = std::make_unique<SpinBarrier>(thread_count);
+        end_barrier = std::make_unique<SpinBarrier>(thread_count);
 
-        partial_deltaE.resize(thread_count, 0.0);
+        partial_deltaE.resize(static_cast<std::size_t>(thread_count));
 
-        for (int i = 0; i < thread_count; ++i) {
+        for (int i = 1; i < thread_count; ++i) {
             workers.emplace_back(&ThreadPool::worker_loop, this, i);
         }
     }
@@ -33,72 +72,41 @@ ThreadPool::~ThreadPool() {
     }
 }
 
-double ThreadPool::parallel_reduce_delta_E(HyperuniformConfig& config, 
+double ThreadPool::parallel_reduce_delta_E(HyperuniformConfig& config,
                                            int xi, int yi, int xj, int yj) {
-    // If sequential
-    if (thread_count <= 1) {
-        const int N = config.N;
-        const auto num_modes = config.modes.size();
-        
-        for (std::size_t m = 0; m < num_modes; ++m) {
-            const auto [kx, ky] = config.modes[m];
-            const double theta_j = -2.0 * PI * (kx * xj + ky * yj) / N;
-            const double theta_i = -2.0 * PI * (kx * xi + ky * yi) / N;
-            config.delta_buffer[m] = std::polar(1.0, theta_j) - std::polar(1.0, theta_i);
-        }
+    if (thread_count <= 1)
+        return delta_energy_range(config, xi, yi, xj, yj, 0, config.modes.size());
 
-        double deltaE = 0.0;
-        for (std::size_t m = 0; m < num_modes; ++m) {
-            deltaE += 2.0 * std::real(std::conj(config.FT[m]) * config.delta_buffer[m])
-                    + std::norm(config.delta_buffer[m]);
-        }
-        return deltaE;
-    }
-
-    // Set shared state for workers
+    // Set shared state for workers (published by the barrier)
     current_config = &config;
     current_xi = xi; current_yi = yi;
     current_xj = xj; current_yj = yj;
 
-    // Signal workers to start
-    start_barrier->arrive_and_wait();
+    start_barrier->arrive_and_wait(); // Signal workers to start
+    run_chunk(0);                     // The calling thread does chunk 0
+    end_barrier->arrive_and_wait();   // Wait for workers to finish
 
-    // Wait for workers to finish
-    end_barrier->arrive_and_wait();
+    double total = 0.0;
+    for (const auto& p : partial_deltaE) total += p.value;
+    return total;
+}
 
-    // Sum partial results
-    return std::accumulate(partial_deltaE.begin(), partial_deltaE.end(), 0.0);
+void ThreadPool::run_chunk(int thread_id) {
+    const std::size_t num_modes = current_config->modes.size();
+    const auto threads = static_cast<std::size_t>(thread_count);
+    const auto id = static_cast<std::size_t>(thread_id);
+    const std::size_t chunk = (num_modes + threads - 1) / threads;
+    const std::size_t begin = std::min(id * chunk, num_modes);
+    const std::size_t end = std::min(begin + chunk, num_modes);
+    partial_deltaE[id].value = delta_energy_range(*current_config, current_xi, current_yi,
+                                                  current_xj, current_yj, begin, end);
 }
 
 void ThreadPool::worker_loop(int thread_id) {
     while (true) {
         start_barrier->arrive_and_wait(); // Wait for work
         if (terminate_pool.load(std::memory_order_relaxed)) break;
-
-        const int N = current_config->N;
-        const auto num_modes = current_config->modes.size();
-        
-        // Determine chunk for this thread
-        const std::size_t chunk_size = (num_modes + thread_count - 1) / thread_count;
-        const std::size_t start_idx = thread_id * chunk_size;
-        const std::size_t end_idx = std::min(start_idx + chunk_size, num_modes);
-
-        double local_deltaE = 0.0;
-
-        for (std::size_t m = start_idx; m < end_idx; ++m) {
-            const auto [kx, ky] = current_config->modes[m];
-            const double theta_j = -2.0 * PI * (kx * current_xj + ky * current_yj) / N;
-            const double theta_i = -2.0 * PI * (kx * current_xi + ky * current_yi) / N;
-            current_config->delta_buffer[m] = std::polar(1.0, theta_j) - std::polar(1.0, theta_i);
-        }
-
-        for (std::size_t m = start_idx; m < end_idx; ++m) {
-            local_deltaE += 2.0 * std::real(std::conj(current_config->FT[m]) * current_config->delta_buffer[m])
-                          + std::norm(current_config->delta_buffer[m]);
-        }
-
-        partial_deltaE[thread_id] = local_deltaE;
-
+        run_chunk(thread_id);
         end_barrier->arrive_and_wait(); // Signal work done
     }
 }
