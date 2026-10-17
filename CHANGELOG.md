@@ -74,7 +74,7 @@ Major release. Existing parameter files still run unchanged, but several outputs
   - For the same `steps_per_temp` the annealing now does about 1/[ρ(1 − ρ)] times more work (≈ 4× at ρ = 0.4). Divide `steps_per_temp` by that factor to keep the 1.0.0 effort.
 - **Acceptance rate.** The rate in `annealing.dat` now counts genuine proposals only.
 - **`sk.dat`.**
-  - It is now the radially averaged S(k) = |ρ̂(k)|² / M over the whole Brillouin zone (k ≠ 0, bins of width 1 in units of 2π/N), with columns k, S(k) and number of modes.
+  - It is now the radially averaged S(k) = |ρ̂(k)|² / M over the whole Brillouin zone (all nonzero k, bins of width 1 in units of 2π/N), with columns k, S(k) and number of modes.
   - In 1.0.0 it was the k_y = 0 axis only, normalised by N².
 - **Energy definition.**
   - Only the half plane of k is stored, because ρ̂(−k) = ρ̂(k)*.

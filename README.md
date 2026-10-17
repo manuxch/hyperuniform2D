@@ -150,7 +150,7 @@ The number of constrained wave vectors is set by the **stealthiness** parameter 
 
 - *M*<sub>*K*</sub> is the number of independently constrained wave vectors with 0 < |**k**| ≤ *K*.
 - Because ρ̂(−**k**) = ρ̂(**k**)\*, each ±**k** pair counts once, so *M*<sub>*K*</sub> is the number of half-plane modes in the mask.
-- *n* is the number of points. On the lattice, the empty sites have the same |ρ̂(**k**)| as the occupied ones for **k** ≠ 0, so the program uses the minority species, *n* = min(*M*, *N*² − *M*).
+- *n* is the number of points. On the lattice, the empty sites have the same |ρ̂(**k**)| as the occupied ones for every nonzero **k**, so the program uses the minority species, *n* = min(*M*, *N*² − *M*).
 - χ is the ratio of independent real constraints (2*M*<sub>*K*</sub>) to real degrees of freedom (*d*(*n* − 1)).
 
 For χ < 1/2, stealthy ground states are disordered, and they become more ordered as χ grows. For χ > 1/2 they crystallize, and the program warns.
@@ -217,7 +217,7 @@ The file names are set in the parameter file.
    - Comment lines after the magic number record the version, *N*, density, *K*, χ (achieved and target), seed, energies, residuals and `weight_power`. PGM readers skip them.
    - Image viewers show the occupied sites in white. To draw them in black, invert the image: `magick input.pgm -negate -compress none output.pgm`. The analysis script still recognises the occupied sites of an inverted file, from the count recorded in the header.
 2. **`annealing.dat`**: one line per temperature level, with temperature `T`, energy (`E`, or `E_w` with weights), cumulative acceptance rate `acc/rate` and the acceptance rate of that level `acc/level`. Every proposal is a genuine occupied ↔ empty swap. Use it to tune the cooling schedule.
-3. **`sk.dat`**: radially averaged structure factor *S*(*k*) = |ρ̂(**k**)|² / *M* over the whole Brillouin zone (**k** ≠ 0, bins of width 1 in units of 2π/*N*).
+3. **`sk.dat`**: radially averaged structure factor *S*(*k*) = |ρ̂(**k**)|² / *M* over the whole Brillouin zone (all nonzero **k**, bins of width 1 in units of 2π/*N*).
    - Columns: mean |*k*| of the bin, *S*(*k*) and number of modes.
    - For an uncorrelated lattice gas, *S* = 1 − ρ.
 
@@ -303,7 +303,7 @@ and the structure factor is
   <img src="docs/eq/structure_factor_light.svg" alt="S(\mathbf{k}) = \frac{1}{M}\, |\hat{\rho}(\mathbf{k})|^2 ,">
 </picture></p>
 
-normalised by the number of points (the usual convention). An uncorrelated lattice gas has *S* = 1 − ρ for **k** ≠ 0.
+normalised by the number of points (the usual convention). An uncorrelated lattice gas has *S* = 1 − ρ for every nonzero **k**.
 
 ### Stealthy hyperuniformity condition
 
