@@ -9,8 +9,7 @@ This repository contains a C++20 program that generates **stealthy hyperuniform 
 The output is a configuration of occupied and empty sites that suppresses large-scale density fluctuations. That is the defining property of disordered systems with hidden order, relevant in photonics, granular materials and biology.
 
 <p align="center">
-  <img src="hyperuniform.png" width="420" alt="Stealthy hyperuniform pattern, 400 x 400, density 0.3">
-  <img src="hyperuniform_zoom.png" width="420" alt="Top-left 100 x 100 corner of the same pattern">
+  <img src="hyperuniform.png" width="210" alt="Stealthy hyperuniform pattern, 400 x 400, density 0.3">&nbsp;&nbsp;<img src="hyperuniform_zoom.png" width="210" alt="Top-left 100 x 100 corner of the same pattern">
 </p>
 <p align="center"><em>Left: the 400 × 400 pattern produced by the example <code>params.in</code> (density 0.3, χ = 0.3, <code>weight_power: 2</code>); occupied sites in black. Right: its top-left 100 × 100 corner, enlarged.</em></p>
 
@@ -143,10 +142,7 @@ A value that cannot be parsed, or one out of range, stops the program with a mes
 
 The number of constrained wave vectors is set by the **stealthiness** parameter of Torquato and coworkers (Batten, Stillinger & Torquato 2008; Zhang, Stillinger & Torquato 2015):
 
-<p align="center"><picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/eq/chi_dark.svg">
-  <img src="docs/eq/chi_light.svg" alt="\chi = \frac{M_K}{d\,(n-1)} = \frac{M_K}{2\,(n-1)}">
-</picture></p>
+<p align="center"><img src="docs/eq/chi.svg" alt="\chi = \frac{M_K}{d\,(n-1)} = \frac{M_K}{2\,(n-1)}"></p>
 
 - *M*<sub>*K*</sub> is the number of independently constrained wave vectors with 0 < |**k**| ≤ *K*.
 - Because ρ̂(−**k**) = ρ̂(**k**)\*, each ±**k** pair counts once, so *M*<sub>*K*</sub> is the number of half-plane modes in the mask.
@@ -169,10 +165,7 @@ The annealing therefore leaves most of the residual at the longest wavelengths. 
 
 With `weight_power: p` the annealing minimises
 
-<p align="center"><picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/eq/weighted_energy_dark.svg">
-  <img src="docs/eq/weighted_energy_light.svg" alt="E_w = \sum_{0<|\mathbf k|\le K} w(\mathbf k)\,|\hat\rho(\mathbf k)|^2, \qquad w(\mathbf k) \propto |\mathbf k|^{-p}">
-</picture></p>
+<p align="center"><img src="docs/eq/weighted_energy.svg" alt="E_w = \sum_{0<|\mathbf k|\le K} w(\mathbf k)\,|\hat\rho(\mathbf k)|^2, \qquad w(\mathbf k) \propto |\mathbf k|^{-p}"></p>
 
 - **Normalisation.** The weights have mean 1 over the mask, so the temperature scale is unchanged.
 - **Same target.** All weights are positive, so *E*<sub>*w*</sub> = 0 exactly when *E* = 0: the target, perfectly stealthy patterns, is the same. Only the unavoidable residual is pushed towards large |**k**|, where it hardly affects σ<sub>*N*</sub>².
@@ -274,10 +267,7 @@ From left to right:
 
 A point pattern (or binary occupation) is **hyperuniform** if the variance of the number of particles in an observation window grows more slowly than the window volume as the window grows. Equivalently, its **structure factor** vanishes at long wavelengths:
 
-<p align="center"><picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/eq/hyperuniform_dark.svg">
-  <img src="docs/eq/hyperuniform_light.svg" alt="\lim_{|\mathbf{k}|\to 0} S(\mathbf{k}) = 0">
-</picture></p>
+<p align="center"><img src="docs/eq/hyperuniform.svg" alt="\lim_{|\mathbf{k}|\to 0} S(\mathbf{k}) = 0"></p>
 
 A crystal has *S*(**k**) = 0 away from its Bragg peaks, so it is hyperuniform. Hyperuniformity also occurs in **disordered** systems, where particles look randomly placed but long-range correlations cancel the large-scale fluctuations.
 
@@ -291,17 +281,11 @@ Consider an *N* × *N* square lattice with periodic boundary conditions. Each si
 
 The discrete Fourier transform of the occupation is
 
-<p align="center"><picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/eq/fourier_dark.svg">
-  <img src="docs/eq/fourier_light.svg" alt="\hat{\rho}(\mathbf{k}) = \sum_{\mathbf{r}} s(\mathbf{r})\, e^{-i \mathbf{k} \cdot \mathbf{r}}, \qquad \mathbf{k} = \frac{2\pi}{N}(k_x, k_y), \quad k_x,k_y \in \mathbb{Z},">
-</picture></p>
+<p align="center"><img src="docs/eq/fourier.svg" alt="\hat{\rho}(\mathbf{k}) = \sum_{\mathbf{r}} s(\mathbf{r})\, e^{-i \mathbf{k} \cdot \mathbf{r}}, \qquad \mathbf{k} = \frac{2\pi}{N}(k_x, k_y), \quad k_x,k_y \in \mathbb{Z},"></p>
 
 and the structure factor is
 
-<p align="center"><picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/eq/structure_factor_dark.svg">
-  <img src="docs/eq/structure_factor_light.svg" alt="S(\mathbf{k}) = \frac{1}{M}\, |\hat{\rho}(\mathbf{k})|^2 ,">
-</picture></p>
+<p align="center"><img src="docs/eq/structure_factor.svg" alt="S(\mathbf{k}) = \frac{1}{M}\, |\hat{\rho}(\mathbf{k})|^2 ,"></p>
 
 normalised by the number of points (the usual convention). An uncorrelated lattice gas has *S* = 1 − ρ for every nonzero **k**.
 
@@ -313,10 +297,7 @@ All modes with 0 < |**k**| ≤ *K* (in units of 2π/*N*) are constrained. *S*(**
 
 The **energy** penalizes the Fourier modes inside the mask:
 
-<p align="center"><picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/eq/energy_dark.svg">
-  <img src="docs/eq/energy_light.svg" alt="E = \sum_{0<|\mathbf{k}|\le K} |\hat{\rho}(\mathbf{k})|^2">
-</picture></p>
+<p align="center"><img src="docs/eq/energy.svg" alt="E = \sum_{0<|\mathbf{k}|\le K} |\hat{\rho}(\mathbf{k})|^2"></p>
 
 A configuration with *E* = 0 is perfectly stealthy within the mask. The search space is discrete and huge, so **simulated annealing** is used to find configurations of near-zero energy.
 

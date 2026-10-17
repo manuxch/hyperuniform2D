@@ -4,6 +4,13 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **README equations invisible in some setups.** The display equations used a `<picture>` with light and dark variants chosen by `prefers-color-scheme`. That follows the operating system, not the GitHub theme, so a dark system with a light GitHub page showed light text on white. They are now a single SVG each, dark text on a white background, readable with any theme.
+- **README map figures.** The two map figures are shown at half size and side by side.
+
 ## [2.1.0] — 2026-10-16
 
 ### Added
@@ -124,6 +131,7 @@ First release.
 - Plain PGM (P2) output, annealing monitor and S(k) along k_y = 0.
 - Analysis script for the number-variance exponent.
 
+[Unreleased]: https://github.com/manuxch/hyperuniform2D/compare/v2.1.0...HEAD
 [2.1.0]: https://github.com/manuxch/hyperuniform2D/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/manuxch/hyperuniform2D/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/manuxch/hyperuniform2D/releases/tag/v1.0.0

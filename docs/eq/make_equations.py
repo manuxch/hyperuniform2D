@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""Renders the display equations of README.md as SVG, one file per GitHub theme (light, dark).
+"""Renders the display equations of README.md as SVG images: dark text on a white background.
 
 GitHub draws README math as native MathML, whose look depends on the math fonts of each browser;
-SVG images look the same everywhere. Needs Matplotlib and a LaTeX installation (amsmath, amssymb).
+SVG images look the same everywhere. The white background keeps them readable whatever the theme:
+a <picture> with a prefers-color-scheme source follows the operating system, not the GitHub theme,
+and showed light text on a white page when the two differed.
+Needs Matplotlib and a LaTeX installation (amsmath, amssymb).
 
   python3 docs/eq/make_equations.py      # from the repository root
 """
@@ -26,13 +29,12 @@ EQUATIONS = {
     "structure_factor": r"S(\mathbf{k}) = \frac{1}{M}\,\bigl|\hat{\rho}(\mathbf{k})\bigr|^2",
     "energy": r"E = \sum_{0<|\mathbf{k}|\le K} \bigl|\hat{\rho}(\mathbf{k})\bigr|^2",
 }
-THEMES = {"light": "#1f2328", "dark": "#e6edf3"}  # GitHub's text colours
+COLOR = "#1f2328"  # GitHub's light-theme text colour
 
 out = Path(__file__).resolve().parent
 for name, tex in EQUATIONS.items():
-    for theme, color in THEMES.items():
-        fig = plt.figure(figsize=(0.01, 0.01))
-        fig.text(0, 0, rf"$\displaystyle {tex}$", color=color)
-        fig.savefig(out / f"{name}_{theme}.svg", transparent=True, bbox_inches="tight", pad_inches=0.04)
-        plt.close(fig)
-        print(out / f"{name}_{theme}.svg")
+    fig = plt.figure(figsize=(0.01, 0.01))
+    fig.text(0, 0, rf"$\displaystyle {tex}$", color=COLOR)
+    fig.savefig(out / f"{name}.svg", facecolor="white", bbox_inches="tight", pad_inches=0.12)
+    plt.close(fig)
+    print(out / f"{name}.svg")
