@@ -22,7 +22,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **README.**
   - Rewritten around that example.
   - New figures: the generated map with an enlarged corner, and the validation plots of the analysis script. They replace the 1.0.0 figures.
-  - Inline math is now plain Unicode and HTML (e.g. *N*², σ<sub>*N*</sub>²), which renders the same in every browser. LaTeX remains only in display equations. GitHub renders inline LaTeX as native MathML, with uneven sizes and spacing.
+  - Math no longer depends on GitHub's MathML rendering, which varies with the math fonts of each browser and gave uneven sizes and spacing.
+    - Inline math is plain Unicode and HTML (e.g. *N*², σ<sub>*N*</sub>²).
+    - Display equations are SVG images rendered with LaTeX, with light and dark theme variants, by `docs/eq/make_equations.py`. Their LaTeX source is kept as alt text.
 - **Analysis script.**
   - The *S*(*k*) panel shows |*k*| ≤ *N*/2 with a fitting vertical range; the corners of the zone used to stretch it.
   - Larger fonts.
