@@ -107,6 +107,31 @@ int main() {
         check(close(energy(c), Ed, 1e-10), "incremental rho_hat = recomputed rho_hat");
     }
 
+    std::cout << "weighted energy\n";
+    {
+        HyperuniformConfig c;
+        initialize_grid(c, 40, 0.3, 21);
+        build_mask(c, 60.0, 2.0);
+        calculate_FT(c);
+        double wsum = 0.0;
+        for (double w : c.weight) wsum += w;
+        check(close(wsum / static_cast<double>(c.weight.size()), 1.0, 1e-12), "weights have mean 1");
+        bool decreasing = true;
+        for (std::size_t m = 0; m < c.modes.size(); ++m) {
+            const int k2 = c.modes[m].kx * c.modes[m].kx + c.modes[m].ky * c.modes[m].ky;
+            decreasing = decreasing && close(c.weight[m] * k2, c.weight[0] * (c.modes[0].kx * c.modes[0].kx + c.modes[0].ky * c.modes[0].ky), 1e-12);
+        }
+        check(decreasing, "w(k) proportional to |k|^-2 for weight_power = 2");
+        double Ew = weighted_energy(c);
+        for (int s = 0; s < 5000; ++s)
+            if (auto dE = attempt_swap(c, 1e9, nullptr, 0.5, 1)) Ew += *dE;
+        calculate_FT(c);
+        check(close(Ew, weighted_energy(c), 1e-8), "accumulated weighted dE = recomputed weighted energy");
+        check(close(energy(c), energy_direct(c), 1e-10), "unweighted energy still exact with weights on");
+        auto u = make(40, 0.3, 60.0, 21);
+        check(close(weighted_energy(u), energy(u), 1e-14), "weight_power = 0: weighted energy = energy");
+    }
+
     std::cout << "thread pool\n";
     {
         auto a = make(64, 0.4, 400.0, 5);

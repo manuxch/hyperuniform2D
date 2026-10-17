@@ -4,6 +4,29 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] — 2026-10-16
+
+### Added
+
+- **Option `weight_power` (p).**
+  - The annealing minimises E_w = Σ w(k)|ρ̂(k)|², with w ∝ |k|^(−p) normalised to mean 1. All weights are positive, so E_w = 0 exactly when E = 0.
+  - The unavoidable lattice residual is pushed away from the longest wavelengths, which control the number variance at large R.
+  - With ρ = 0.3 and χ = 0.3, p = 2 gives α = 0.98 at N = 400, against 1.69 with p = 0. The residual for |k| ≤ K/4 drops from 3.7 % to 0.11 %, and the mask average is unchanged.
+  - Default 0, the standard unweighted energy.
+- **New reported quantity.** The residual of the longest wavelengths (|k| ≤ K/4) is reported and written to the PGM header, together with `weight_power`.
+- **Analysis script, `--species {auto,max,min}`.** In `auto` mode the occupied pixel value comes from the `occupied M` count in the hyper2D header, so images inverted afterwards (e.g. `magick -negate`) are analysed correctly.
+
+### Changed
+
+- **`params.in`.** It is now the documented example of the README: a 400 × 400 lattice, density 0.3, χ = 0.3 and `weight_power: 2`, with every key commented.
+- **README.**
+  - Rewritten around that example.
+  - New figures: the generated map with an enlarged corner, and the validation plots of the analysis script. They replace the 1.0.0 figures.
+  - Inline math is now plain Unicode and HTML (e.g. *N*², σ<sub>*N*</sub>²), which renders the same in every browser. LaTeX remains only in display equations. GitHub renders inline LaTeX as native MathML, with uneven sizes and spacing.
+- **Analysis script.**
+  - The *S*(*k*) panel shows |*k*| ≤ *N*/2 with a fitting vertical range; the corners of the zone used to stretch it.
+  - Larger fonts.
+
 ## [2.0.0] — 2026-10-15
 
 Major release. Existing parameter files still run unchanged, but several outputs and the meaning of
@@ -99,5 +122,6 @@ First release.
 - Plain PGM (P2) output, annealing monitor and S(k) along k_y = 0.
 - Analysis script for the number-variance exponent.
 
+[2.1.0]: https://github.com/manuxch/hyperuniform2D/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/manuxch/hyperuniform2D/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/manuxch/hyperuniform2D/releases/tag/v1.0.0

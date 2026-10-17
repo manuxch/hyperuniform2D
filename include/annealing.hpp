@@ -21,10 +21,12 @@ struct AnnealReport {
     long long levels = 0;             ///< Temperature levels run
     long long attempts = 0;           ///< Proposals, annealing + quench
     long long accepted = 0;
-    double    E_initial = 0.0;        ///< Exact values, recomputed from scratch
+    double    E_initial = 0.0;        ///< Exact unweighted energies, recomputed from scratch
     double    E_final = 0.0;
-    double    max_drift = 0.0;        ///< Largest |incremental E - exact E| seen at resyncs
-    bool      reached_tol = false;    ///< E_final <= energy_tol
+    double    Ew_initial = 0.0;       ///< Weighted energies (the annealed quantity; = E if weight_power = 0)
+    double    Ew_final = 0.0;
+    double    max_drift = 0.0;        ///< Largest |incremental E_w - exact E_w| seen at resyncs
+    bool      reached_tol = false;    ///< Ew_final <= energy_tol
 };
 
 /// Executes the simulated annealing (and the optional zero-temperature quench). The energy is kept with

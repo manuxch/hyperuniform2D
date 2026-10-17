@@ -93,13 +93,14 @@ AnnealReport simulated_annealing(HyperuniformConfig& config, const Parameters& p
 
     // Incremental accumulator: avoids recalculating the energy O(|modes|) after every swap
     calculate_FT(config);
-    double E_current = energy(config);
-    rep.E_initial = E_current;
+    double E_current = weighted_energy(config);  // the annealed quantity
+    rep.E_initial = energy(config);
+    rep.Ew_initial = E_current;
 
     long long since_resync = 0;
     const auto resync = [&] {
         calculate_FT(config);
-        const double exact = energy(config);
+        const double exact = weighted_energy(config);
         rep.max_drift = std::max(rep.max_drift, std::abs(E_current - exact));
         E_current = exact;
         since_resync = 0;
@@ -126,7 +127,7 @@ AnnealReport simulated_annealing(HyperuniformConfig& config, const Parameters& p
         std::cerr << std::format("Error: could not create '{}'\n", p.annealing_file);
     } else {
         // Header: columns aligned with data format
-        fann << std::format("{:<16} {:<20} {:<14} {:<14}\n", "# T", "E", "acc/rate", "acc/level");
+        fann << std::format("{:<16} {:<20} {:<14} {:<14}\n", "# T", config.weight_power != 0.0 ? "E_w" : "E", "acc/rate", "acc/level");
     }
 
     std::cout << std::format("Starting simulated annealing → '{}'\n", p.annealing_file);
@@ -162,8 +163,9 @@ AnnealReport simulated_annealing(HyperuniformConfig& config, const Parameters& p
     }
 
     resync();  // exact final energy, and the last drift check
-    rep.E_final = E_current;
-    rep.reached_tol = rep.E_final <= p.energy_tol;
+    rep.Ew_final = E_current;
+    rep.E_final = energy(config);
+    rep.reached_tol = rep.Ew_final <= p.energy_tol;
     std::cout << std::format("Annealing finished: {} levels, {} proposals, acceptance {:.4f}. Monitoring saved to '{}'\n",
                              rep.levels, rep.attempts,
                              rep.attempts ? static_cast<double>(rep.accepted) / static_cast<double>(rep.attempts) : 0.0,

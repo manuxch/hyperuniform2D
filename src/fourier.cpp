@@ -32,6 +32,27 @@ double energy(const HyperuniformConfig& config) {
     return 2.0 * E;  // each stored mode stands for the pair ±k
 }
 
+double weighted_energy(const HyperuniformConfig& config) {
+    double E = 0.0;
+    for (std::size_t m = 0; m < config.ft_re.size(); ++m)
+        E += config.weight[m] * (config.ft_re[m] * config.ft_re[m] + config.ft_im[m] * config.ft_im[m]);
+    return 2.0 * E;
+}
+
+double band_residual(const HyperuniformConfig& config, double k_max) {
+    const double rho = config.M / (static_cast<double>(config.N) * config.N);
+    const double k2max = k_max * k_max;
+    double sum = 0.0;
+    std::size_t n = 0;
+    for (std::size_t m = 0; m < config.modes.size(); ++m) {
+        const auto [kx, ky] = config.modes[m];
+        if (static_cast<double>(kx * kx + ky * ky) > k2max) continue;
+        sum += config.ft_re[m] * config.ft_re[m] + config.ft_im[m] * config.ft_im[m];
+        ++n;
+    }
+    return n ? sum / static_cast<double>(n) / config.M / (1.0 - rho) : 0.0;
+}
+
 double mask_residual(const HyperuniformConfig& config, double E) {
     const double sites = static_cast<double>(config.N) * config.N;
     const double rho = config.M / sites;
@@ -49,7 +70,7 @@ double delta_energy_range(HyperuniformConfig& config, int xi, int yi, int xj, in
         const double di = config.w_im[jj] - config.w_im[ji];
         config.d_re[m] = dr;
         config.d_im[m] = di;
-        dE += 2.0 * (config.ft_re[m] * dr + config.ft_im[m] * di) + dr * dr + di * di;
+        dE += config.weight[m] * (2.0 * (config.ft_re[m] * dr + config.ft_im[m] * di) + dr * dr + di * di);
     }
     return 2.0 * dE;  // ±k pair
 }

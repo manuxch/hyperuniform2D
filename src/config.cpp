@@ -91,7 +91,7 @@ MaskChoice choose_mask_for_chi(int N, std::size_t n_points, double chi) {
     return best;
 }
 
-void build_mask(HyperuniformConfig& config, double K2) {
+void build_mask(HyperuniformConfig& config, double K2, double weight_power) {
     const int N = config.N;
     const int lim = mode_limit(N);
     if (K2 > static_cast<double>(lim * lim))
@@ -128,6 +128,18 @@ void build_mask(HyperuniformConfig& config, double K2) {
     for (std::size_t m = 0; m < n; ++m) {
         config.kx_off[m] = (config.modes[m].kx + half) * N;
         config.ky_off[m] = (config.modes[m].ky + half) * N;
+    }
+    config.weight_power = weight_power;
+    config.weight.assign(n, 1.0);
+    if (weight_power != 0.0) {
+        double sum = 0.0;
+        for (std::size_t m = 0; m < n; ++m) {
+            const double k2 = static_cast<double>(config.modes[m].kx * config.modes[m].kx + config.modes[m].ky * config.modes[m].ky);
+            config.weight[m] = std::pow(k2, -0.5 * weight_power);
+            sum += config.weight[m];
+        }
+        const double mean = sum / static_cast<double>(n);
+        for (double& w : config.weight) w /= mean;
     }
     config.ft_re.assign(n, 0.0);
     config.ft_im.assign(n, 0.0);

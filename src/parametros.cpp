@@ -57,6 +57,7 @@ bool Parameters::read(const std::string &filename) {
           {"local_fraction", [&](std::string_view v) { local_fraction = parse_number<double>(v); }},
           {"local_radius", [&](std::string_view v) { local_radius = parse_number<int>(v); }},
           {"quench_steps", [&](std::string_view v) { quench_steps = parse_number<long long>(v); }},
+          {"weight_power", [&](std::string_view v) { weight_power = parse_number<double>(v); }},
           {"energy_tol", [&](std::string_view v) { energy_tol = parse_number<double>(v); }},
           {"resync_interval", [&](std::string_view v) { resync_interval = parse_number<long long>(v); }},
           {"seed", [&](std::string_view v) { seed = parse_number<unsigned>(v); }},
@@ -127,6 +128,8 @@ std::vector<std::string> Parameters::validate() const {
     err.push_back(std::format("local_radius = {} must be in [1, N/2)", local_radius));
   if (quench_steps < 0)
     err.push_back(std::format("quench_steps = {} must be >= 0", quench_steps));
+  if (!(weight_power >= 0.0 && weight_power <= 8.0))
+    err.push_back(std::format("weight_power = {} must be in [0, 8]", weight_power));
   if (energy_tol < 0.0)
     err.push_back(std::format("energy_tol = {} must be >= 0", energy_tol));
   if (resync_interval < 1)
@@ -150,6 +153,7 @@ void Parameters::print() const {
         "  local_fraction    = {}\n"
         "  local_radius      = {}\n"
         "  quench_steps      = {}\n"
+        "  weight_power      = {}\n"
         "  energy_tol        = {}\n"
         "  resync_interval   = {}\n"
         "  seed              = {}\n"
@@ -161,7 +165,7 @@ void Parameters::print() const {
         N, density, K, chi > 0.0 ? " (ignored: derived from chi)" : "",
         chi, chi > 0.0 ? "" : " (unused: mask from K)",
         T_initial, T_initial <= 0.0 ? " (automatic)" : "",
-        T_final, cooling_rate, steps_per_temp, local_fraction, local_radius, quench_steps, energy_tol, resync_interval,
+        T_final, cooling_rate, steps_per_temp, local_fraction, local_radius, quench_steps, weight_power, energy_tol, resync_interval,
         seed, num_threads, parallel_min_modes,
         output_file, annealing_file, sk_file);
 }

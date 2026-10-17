@@ -16,6 +16,7 @@ struct Parameters {
     double      local_fraction    = 0.5;    ///< Fraction of proposals that move a point to a nearby empty site
     int         local_radius      = 1;      ///< "Nearby": Chebyshev distance <= local_radius
     long long   quench_steps      = 0;      ///< Zero-temperature proposals after the annealing (0 = none)
+    double      weight_power      = 0.0;    ///< Annealing energy Σ w(k)|rho_hat|², w ∝ |k|^(-weight_power); 0 = standard
     double      energy_tol        = 1e-6;   ///< Stop as soon as E <= energy_tol (stealthy reached)
     long long   resync_interval   = 1000000; ///< Recompute rho_hat from scratch every so many accepted swaps
     unsigned    seed              = 1729;

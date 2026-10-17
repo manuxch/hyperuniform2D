@@ -70,3 +70,6 @@ Testing/
 # run directory 
 run/
 .cache/
+
+# Python bytecode
+__pycache__/

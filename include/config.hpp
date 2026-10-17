@@ -35,6 +35,8 @@ struct HyperuniformConfig {
     std::vector<std::int32_t> ky_off;     ///< (ky + N/2) N for each mode
     std::vector<double>       w_re, w_im; ///< exp(-i 2π j / N), j in [0, N)
 
+    std::vector<double> weight;           ///< w(k) of each mode in the annealing energy (all 1 if p = 0)
+    double weight_power = 0.0;            ///< p in w(k) ∝ |k|^(-p)
     std::vector<double> ft_re, ft_im;     ///< rho_hat(k) for each mode
     std::vector<double> d_re, d_im;       ///< Reusable buffer: change of rho_hat for the proposed swap
 
@@ -88,6 +90,8 @@ struct MaskChoice {
 /// Throws std::invalid_argument if chi is not positive or no shell fits.
 [[nodiscard]] MaskChoice choose_mask_for_chi(int N, std::size_t n_points, double chi);
 
-/// Builds the half-plane mask 0 < |k|² <= K2, the phase tables and the buffers.
+/// Builds the half-plane mask 0 < |k|² <= K2, the phase tables, the buffers and the mode weights
+/// w(k) = |k|^(-weight_power) / mean over the mask of |k|^(-weight_power) (mean weight 1, so the energy
+/// scale of a random start, and thus the temperature scale, does not depend on weight_power).
 /// Throws std::invalid_argument if the mask is empty or K reaches N/2 - 1 (Nyquist limit).
-void build_mask(HyperuniformConfig& config, double K2);
+void build_mask(HyperuniformConfig& config, double K2, double weight_power = 0.0);

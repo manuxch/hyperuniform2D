@@ -1,27 +1,57 @@
-# Hyperuniform simulation parameters
-# Grid size
-N: 64
-# Occupation fraction
-density: 0.4
-# Mask: either the stealthiness chi (> 0, K is derived from it) ...
-chi: 0
-# ... or the exclusion radius K (in units of 2π/N), used when chi = 0
-K: 4.0
-# Simulated annealing parameters (T_initial <= 0: automatic)
-T_initial: 10.0
-T_final: 0.01
-cooling_rate: 0.999
-steps_per_temp: 1000
-# Proposals to a nearby empty site (fraction) and their range
+# hyper2D 2.x parameter file: "key: value", '#' starts a comment.
+# Run:      ./build/hyper2D params.in
+# Analyse:  python3 scripts/test_hyper2D.py hyperuniform.pgm
+#
+# Stealthy hyperuniform pattern on a 400 x 400 periodic lattice, density 0.3, chi = 0.3,
+# with the long wavelengths weighted (weight_power: 2). Measured with these values (Ryzen 5 5600X):
+# about 14 million proposals, a few minutes with 4 threads; residual <S>_mask/(1-rho) ~ 0.018,
+# residual for |k| <= K/4 ~ 0.001, number-variance exponent alpha ~ 0.98.
+
+# --- System ---------------------------------------------------------------------------------
+# Lattice side (N x N sites, periodic)
+N: 400
+# Fraction of occupied sites; the number of occupied sites is round(density * N^2)
+density: 0.3
+
+# --- Mask (constrained wave vectors) --------------------------------------------------------
+# Stealthiness chi = (constrained half-plane modes) / (n - 1), n = min(occupied, empty).
+# chi > 0 derives the mask radius K from it (chi < 0.5 for disordered stealthy patterns).
+chi: 0.3
+# Mask radius in units of 2pi/N, used instead of chi when chi = 0 (uncomment and set chi: 0)
+# K: 4.0
+
+# --- Annealing energy -----------------------------------------------------------------------
+# Mode weights w(k) ~ |k|^(-weight_power): 0 = standard unweighted energy; 2 keeps the residual
+# away from the longest wavelengths, which control the number variance at large R (recommended)
+weight_power: 2
+
+# --- Cooling schedule -----------------------------------------------------------------------
+# Initial temperature; <= 0 = automatic (a typical uphill swap is accepted with probability 1/2)
+T_initial: 0
+# Final temperature: the annealing stops below it
+T_final: 0.001
+# Geometric cooling factor per temperature level
+cooling_rate: 0.97
+# Swap proposals (occupied <-> empty) per temperature level
+steps_per_temp: 20000
+# Fraction of proposals that move a point to a nearby empty site, and "nearby" (Chebyshev distance)
 local_fraction: 0.5
 local_radius: 1
-# Zero-temperature proposals after the annealing
-quench_steps: 0
-# Random seed
+# Zero-temperature proposals after the annealing (only downhill swaps)
+quench_steps: 400000
+# Stop as soon as the (weighted) energy is below this value
+energy_tol: 1e-6
+
+# --- Run ------------------------------------------------------------------------------------
+# Random seed (0 ... 2^32 - 1)
 seed: 1729
-# Number of threads (0 = auto: min(4, available CPUs), 1 = sequential)
+# Threads: 0 = automatic (min(4, CPUs available to the process)), 1 = sequential
 num_threads: 0
-# Output files
+
+# --- Output files ---------------------------------------------------------------------------
+# Pattern (plain PGM, 1 = occupied; the header comments record the parameters and residuals)
 output_file: hyperuniform.pgm
+# Per temperature level: T, energy, cumulative and per-level acceptance
 annealing_file: annealing.dat
+# Radially averaged structure factor S(k) = |rho_hat(k)|^2 / M
 sk_file: sk.dat

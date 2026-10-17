@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Hyperuniformity analysis of a binary pattern stored as a plain PGM (P2) image.
 
-For the occupied sites (pixel == max value, i.e. 1 in the files written by hyper2D) it computes:
+For the occupied sites it computes the quantities below. Which pixel value is "occupied" is decided by
+--species: auto (default) uses the "occupied M" count written by hyper2D in the PGM comments, so files
+inverted afterwards (e.g. magick -negate) are still read correctly; without that comment, occupied = max value.
 
   1. the number variance sigma_N^2(R) of the count in a disk of radius R, over ALL N^2 lattice centres
      (exact: a periodic FFT convolution of the occupation with the disk, no random sampling);
@@ -24,13 +26,16 @@ import sys
 import numpy as np
 
 
-def read_pgm_p2(filename):
-    """Reads a PGM file in text mode (P2) ignoring comments."""
+def read_pgm_p2(filename, comments=None):
+    """Reads a PGM file in text mode (P2) ignoring comments (appended to `comments` if a list is given)."""
     words = []
     try:
         with open(filename, 'r') as f:
             for line in f:
-                words.extend(line.split('#')[0].split())
+                body, hash_, comment = line.partition('#')
+                if hash_ and comments is not None:
+                    comments.append(comment.strip())
+                words.extend(body.split())
     except FileNotFoundError:
         sys.exit(f"Error: the file '{filename}' does not exist.")
     if not words:
@@ -101,16 +106,30 @@ def main():
                         help="fft: exact over all lattice centres (default); sample: random windows")
     parser.add_argument("--samples", type=int, default=1000, help="windows per radius for --method sample")
     parser.add_argument("--seed", type=int, default=12345, help="random seed for --method sample")
+    parser.add_argument("--species", choices=("auto", "max", "min"), default="auto",
+                        help="occupied pixel value: auto (from the hyper2D header, else max), max or min")
     parser.add_argument("--save", help="save the figure to this file")
     parser.add_argument("--no-show", action="store_true", help="do not open the interactive window")
     args = parser.parse_args()
 
     print(f"Reading file: {args.filename}...")
-    pixels, width, height, max_val = read_pgm_p2(args.filename)
+    comments = []
+    pixels, width, height, max_val = read_pgm_p2(args.filename, comments)
     if width != height:
         sys.exit("Error: the analysis assumes a square periodic lattice.")
     L = width
-    occ = pixels == max_val  # occupied sites (1 in hyper2D output), whatever their fraction
+    occ = pixels == max_val  # occupied = max value (1 in hyper2D output), whatever their fraction
+    if args.species == "min":
+        occ = pixels == pixels.min()
+    elif args.species == "auto":
+        declared = [int(c.split()[c.split().index("occupied") + 1]) for c in comments
+                    if "occupied" in c.split() and c.split().index("occupied") + 1 < len(c.split())]
+        if declared and int(occ.sum()) != declared[0]:
+            alt = pixels == pixels.min()
+            if int(alt.sum()) == declared[0]:
+                print(f"Note: the header declares {declared[0]} occupied sites, which match the minimum pixel "
+                      "value: the image was inverted; analysing the occupied sites.")
+                occ = alt
     M = int(occ.sum())
     rho = M / (L * L)
     print(f"Image: {L}x{L}, {M} occupied sites, density {rho:.4f}")
@@ -150,7 +169,7 @@ def main():
     if args.no_show:
         matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    matplotlib.rcParams.update({'lines.linewidth': 1.5, 'font.size': 10,
+    matplotlib.rcParams.update({'lines.linewidth': 1.5, 'font.size': 12,
                                 'text.usetex': shutil.which("latex") is not None})
 
     fit_N = np.exp(c_N) * radii ** alpha
@@ -170,9 +189,11 @@ def main():
     ax.set_xlabel(r'$R$'); ax.set_ylabel(r'$\sigma_\rho^2$'); ax.legend(); ax.grid(True, which="both", ls="--", alpha=0.4)
 
     ax = axs[2]
-    ax.plot(k, S, '.-', color='tab:green')
+    shown = k <= L / 2  # the corners of the zone (|k| up to N/sqrt(2)) are not plotted
+    ax.plot(k[shown], S[shown], '.-', color='tab:green', ms=3)
     ax.axhline(1 - rho, color='gray', ls='--', label=r'$1-\rho$ (uncorrelated)')
     ax.set_xlabel(r'$|k|$ ($2\pi/N$)'); ax.set_ylabel(r'$S(k)$'); ax.set_xlim(0, L / 2)
+    ax.set_ylim(-0.03, 1.1 * max(S[shown].max(), 1 - rho))
     ax.legend(); ax.grid(True, ls="--", alpha=0.4)
 
     fig.tight_layout()
