@@ -1,5 +1,6 @@
 #include "continuum.hpp"
 #include "constants.hpp"
+#include "thread_pool.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -22,13 +23,6 @@ double fold(double u, double L) noexcept {
 /// Minimum-image difference along a periodic axis of length L.
 double min_image(double d, double L) noexcept {
     return d - L * std::round(d / L);
-}
-
-/// Phase of mode m at a point, from its axis tables (ey holds non-negative ny; negative ny by conjugation).
-inline cplx mode_phase(const ModeK& m, const cplx* ex, const cplx* ey) noexcept {
-    const cplx a = ex[m.kx];
-    const cplx b = m.ky >= 0 ? ey[m.ky] : std::conj(ey[-m.ky]);
-    return a * b;
 }
 
 /// Cell list over the folded positions with cells of side >= h on both axes (periodic). Returns false if
@@ -200,6 +194,15 @@ void build_continuum_mask(ContinuumConfig& c, double K, double weight_power) {
     if (c.modes.empty())
         throw std::invalid_argument(std::format("K = {:.6g} contains no mode of the {} x {} box", K, c.Lx, c.Ly));
     const std::size_t n = c.modes.size();
+    c.runs.clear();
+    for (std::size_t m = 0; m < n; ++m) {
+        const ModeK& k = c.modes[m];
+        if (!c.runs.empty() && c.runs.back().nx == k.kx &&
+            c.runs.back().ny_lo + static_cast<int>(c.runs.back().count) == k.ky)
+            ++c.runs.back().count;
+        else
+            c.runs.push_back({k.kx, k.ky, m, 1});
+    }
     c.weight_power = weight_power;
     c.weight.assign(n, 1.0);
     if (weight_power != 0.0) {
@@ -214,24 +217,76 @@ void build_continuum_mask(ContinuumConfig& c, double K, double weight_power) {
     c.ft_im.assign(n, 0.0);
 }
 
-void continuum_FT_range(const ContinuumConfig& c, std::size_t m_begin, std::size_t m_end,
-                        std::vector<double>& re, std::vector<double>& im) {
-    std::vector<cplx> ex(static_cast<std::size_t>(c.nx_max) + 1), ey(static_cast<std::size_t>(c.ny_max) + 1);
-    for (std::size_t p = 0; p < c.N; ++p) {
-        axis_phases(c.r[2 * p], c.Lx, c.nx_max, ex.data());
-        axis_phases(c.r[2 * p + 1], c.Ly, c.ny_max, ey.data());
-        for (std::size_t m = m_begin; m < m_end; ++m) {
-            const cplx e = mode_phase(c.modes[m], ex.data(), ey.data());
-            re[m] += e.real();
-            im[m] += e.imag();
+namespace {
+
+/// Axis tables of one point as real arrays: ex for nx = 0..nx_max, ey for ny = -ny_max..ny_max at
+/// index ny + ny_max (negative ny by conjugation).
+struct AxisTables {
+    std::vector<cplx> tx, ty;
+    std::vector<double> exr, exi, eyr, eyi;
+    explicit AxisTables(const ContinuumConfig& c)
+        : tx(static_cast<std::size_t>(c.nx_max) + 1), ty(static_cast<std::size_t>(c.ny_max) + 1),
+          exr(tx.size()), exi(tx.size()), eyr(2 * ty.size() - 1), eyi(2 * ty.size() - 1) {}
+    void fill(const ContinuumConfig& c, double x, double y) {
+        axis_phases(x, c.Lx, c.nx_max, tx.data());
+        axis_phases(y, c.Ly, c.ny_max, ty.data());
+        for (std::size_t n = 0; n < tx.size(); ++n) { exr[n] = tx[n].real(); exi[n] = tx[n].imag(); }
+        const auto o = static_cast<std::size_t>(c.ny_max);
+        for (std::size_t n = 0; n < ty.size(); ++n) {
+            eyr[o + n] = ty[n].real(); eyi[o + n] = ty[n].imag();
+            eyr[o - n] = ty[n].real(); eyi[o - n] = -ty[n].imag();
+        }
+    }
+};
+
+}  // namespace
+
+void continuum_FT_points(const ContinuumConfig& c, std::size_t p_begin, std::size_t p_end, double* re, double* im) {
+    AxisTables t(c);
+    double* __restrict out_r = re;
+    double* __restrict out_i = im;
+    for (std::size_t p = p_begin; p < p_end; ++p) {
+        t.fill(c, c.r[2 * p], c.r[2 * p + 1]);
+        for (const auto& run : c.runs) {
+            const double xr = t.exr[static_cast<std::size_t>(run.nx)], xi = t.exi[static_cast<std::size_t>(run.nx)];
+            // ey index of mode m: ny_lo + (m - begin) + ny_max
+            const double* __restrict yr = t.eyr.data() + (run.ny_lo + c.ny_max) - static_cast<std::ptrdiff_t>(run.begin);
+            const double* __restrict yi = t.eyi.data() + (run.ny_lo + c.ny_max) - static_cast<std::ptrdiff_t>(run.begin);
+            const std::size_t e = run.begin + run.count;
+            for (std::size_t m = run.begin; m < e; ++m) {
+                out_r[m] += xr * yr[m] - xi * yi[m];
+                out_i[m] += xr * yi[m] + xi * yr[m];
+            }
         }
     }
 }
 
-void continuum_FT(ContinuumConfig& c) {
-    std::fill(c.ft_re.begin(), c.ft_re.end(), 0.0);
-    std::fill(c.ft_im.begin(), c.ft_im.end(), 0.0);
-    continuum_FT_range(c, 0, c.modes.size(), c.ft_re, c.ft_im);
+void continuum_FT(ContinuumConfig& c, ThreadPool* pool) {
+    const std::size_t M = c.modes.size();
+    const std::size_t groups = std::min<std::size_t>(32, std::max<std::size_t>(1, c.N));
+    c.part_re.assign(groups * M, 0.0);
+    c.part_im.assign(groups * M, 0.0);
+    auto by_group = [&c, M, groups](std::size_t b, std::size_t e) {
+        for (std::size_t q = b; q < e; ++q)
+            continuum_FT_points(c, q * c.N / groups, (q + 1) * c.N / groups, c.part_re.data() + q * M, c.part_im.data() + q * M);
+        return 0.0;
+    };
+    auto add = [&c, M, groups](std::size_t b, std::size_t e) {
+        for (std::size_t m = b; m < e; ++m) {
+            double r = 0.0, i = 0.0;
+            for (std::size_t q = 0; q < groups; ++q) { r += c.part_re[q * M + m]; i += c.part_im[q * M + m]; }
+            c.ft_re[m] = r;
+            c.ft_im[m] = i;
+        }
+        return 0.0;
+    };
+    if (pool) {
+        (void)pool->parallel_reduce(groups, by_group);
+        (void)pool->parallel_reduce(M, add);
+    } else {
+        (void)by_group(0, groups);
+        (void)add(0, M);
+    }
 }
 
 double continuum_energy(const ContinuumConfig& c) {
@@ -263,26 +318,73 @@ double continuum_band_residual(const ContinuumConfig& c, double k_max) {
 }
 
 void continuum_gradient_range(const ContinuumConfig& c, std::size_t p_begin, std::size_t p_end, std::vector<double>& g) {
-    std::vector<cplx> ex(static_cast<std::size_t>(c.nx_max) + 1), ey(static_cast<std::size_t>(c.ny_max) + 1);
-    for (std::size_t p = p_begin; p < p_end; ++p) {
-        axis_phases(c.r[2 * p], c.Lx, c.nx_max, ex.data());
-        axis_phases(c.r[2 * p + 1], c.Ly, c.ny_max, ey.data());
-        double gx = 0.0, gy = 0.0;
-        for (std::size_t m = 0; m < c.modes.size(); ++m) {
-            const cplx e = mode_phase(c.modes[m], ex.data(), ey.data());
-            const double s = c.weight[m] * (c.ft_re[m] * e.imag() - c.ft_im[m] * e.real());  // w Im(conj(F) e)
-            gx += c.kx[m] * s;
-            gy += c.ky[m] * s;
+    // w Im(conj(F) e) = Im(A e) with A = w conj(F); along a run e = ex ey, so
+    //   Σ_run kx Im(A e) = kx Im(ex S),  Σ_run ky Im(A e) = Im(ex T),  S = Σ A ey,  T = Σ ky A ey.
+    // Blocks of B points: tables stored [index][point], and the point is the inner loop.
+    constexpr std::size_t B = 32;
+    const std::size_t n = c.modes.size();
+    std::vector<double> ar(n), ai(n);
+    for (std::size_t m = 0; m < n; ++m) { ar[m] = c.weight[m] * c.ft_re[m]; ai[m] = -c.weight[m] * c.ft_im[m]; }
+    const std::size_t nxs = static_cast<std::size_t>(c.nx_max) + 1, nys = 2 * static_cast<std::size_t>(c.ny_max) + 1;
+    std::vector<double> exr(nxs * B), exi(nxs * B), eyr(nys * B), eyi(nys * B);
+    std::vector<double> Sr(B), Si(B), Tr(B), Ti(B), gx(B), gy(B);
+    AxisTables t(c);
+    for (std::size_t p0 = p_begin; p0 < p_end; p0 += B) {
+        const std::size_t nb = std::min(B, p_end - p0);
+        for (std::size_t q = 0; q < nb; ++q) {
+            t.fill(c, c.r[2 * (p0 + q)], c.r[2 * (p0 + q) + 1]);
+            for (std::size_t k = 0; k < nxs; ++k) { exr[k * B + q] = t.exr[k]; exi[k * B + q] = t.exi[k]; }
+            for (std::size_t k = 0; k < nys; ++k) { eyr[k * B + q] = t.eyr[k]; eyi[k * B + q] = t.eyi[k]; }
         }
-        g[2 * p] = 4.0 * gx;
-        g[2 * p + 1] = 4.0 * gy;
+        std::fill(gx.begin(), gx.end(), 0.0);
+        std::fill(gy.begin(), gy.end(), 0.0);
+        double* __restrict sr = Sr.data();
+        double* __restrict si = Si.data();
+        double* __restrict tr = Tr.data();
+        double* __restrict ti = Ti.data();
+        for (const auto& run : c.runs) {
+            std::fill(Sr.begin(), Sr.end(), 0.0);
+            std::fill(Si.begin(), Si.end(), 0.0);
+            std::fill(Tr.begin(), Tr.end(), 0.0);
+            std::fill(Ti.begin(), Ti.end(), 0.0);
+            for (std::size_t j = 0; j < run.count; ++j) {
+                const std::size_t m = run.begin + j;
+                const double a_r = ar[m], a_i = ai[m], kym = c.ky[m];
+                const std::size_t row = static_cast<std::size_t>(run.ny_lo + static_cast<int>(j) + c.ny_max) * B;
+                const double* __restrict yr = eyr.data() + row;
+                const double* __restrict yi = eyi.data() + row;
+                for (std::size_t q = 0; q < B; ++q) {
+                    const double qr = a_r * yr[q] - a_i * yi[q];
+                    const double qi = a_r * yi[q] + a_i * yr[q];
+                    sr[q] += qr; si[q] += qi;
+                    tr[q] += kym * qr; ti[q] += kym * qi;
+                }
+            }
+            const double kx = c.kx[run.begin];
+            const double* __restrict xr = exr.data() + static_cast<std::size_t>(run.nx) * B;
+            const double* __restrict xi = exi.data() + static_cast<std::size_t>(run.nx) * B;
+            for (std::size_t q = 0; q < B; ++q) {
+                gx[q] += kx * (xr[q] * si[q] + xi[q] * sr[q]);
+                gy[q] += xr[q] * ti[q] + xi[q] * tr[q];
+            }
+        }
+        for (std::size_t q = 0; q < nb; ++q) {
+            g[2 * (p0 + q)] = 4.0 * gx[q];
+            g[2 * (p0 + q) + 1] = 4.0 * gy[q];
+        }
     }
 }
 
-double continuum_spectral_energy_grad(ContinuumConfig& c, std::vector<double>& g) {
-    continuum_FT(c);
+void continuum_gradient(const ContinuumConfig& c, std::vector<double>& g, ThreadPool* pool) {
     g.assign(2 * c.N, 0.0);
-    continuum_gradient_range(c, 0, c.N, g);
+    auto job = [&c, &g](std::size_t b, std::size_t e) { continuum_gradient_range(c, b, e, g); return 0.0; };
+    if (pool) (void)pool->parallel_reduce(c.N, job);
+    else (void)job(0, c.N);
+}
+
+double continuum_spectral_energy_grad(ContinuumConfig& c, std::vector<double>& g, ThreadPool* pool) {
+    continuum_FT(c, pool);
+    continuum_gradient(c, g, pool);
     return continuum_weighted_energy(c);
 }
 

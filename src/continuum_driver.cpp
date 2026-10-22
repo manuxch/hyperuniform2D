@@ -19,23 +19,9 @@
 
 namespace {
 
-/// rho_hat of every mode, the modes split among the threads (each thread writes its own range, and each
-/// mode sums the points in the same order, so the result does not depend on the thread count).
-void parallel_FT(ContinuumConfig& c, ThreadPool* pool) {
-    std::fill(c.ft_re.begin(), c.ft_re.end(), 0.0);
-    std::fill(c.ft_im.begin(), c.ft_im.end(), 0.0);
-    if (!pool) { continuum_FT_range(c, 0, c.modes.size(), c.ft_re, c.ft_im); return; }
-    auto job = [&c](std::size_t b, std::size_t e) { continuum_FT_range(c, b, e, c.ft_re, c.ft_im); return 0.0; };
-    (void)pool->parallel_reduce(c.modes.size(), job);
-}
+void parallel_FT(ContinuumConfig& c, ThreadPool* pool) { continuum_FT(c, pool); }
 
-/// Gradient of E_w, the points split among the threads.
-void parallel_gradient(const ContinuumConfig& c, std::vector<double>& g, ThreadPool* pool) {
-    g.assign(2 * c.N, 0.0);
-    if (!pool) { continuum_gradient_range(c, 0, c.N, g); return; }
-    auto job = [&c, &g](std::size_t b, std::size_t e) { continuum_gradient_range(c, b, e, g); return 0.0; };
-    (void)pool->parallel_reduce(c.N, job);
-}
+void parallel_gradient(const ContinuumConfig& c, std::vector<double>& g, ThreadPool* pool) { continuum_gradient(c, g, pool); }
 
 double fold(double u, double L) {
     double f = u - L * std::floor(u / L);
@@ -189,7 +175,7 @@ void run_continuum(const Parameters& p, unsigned seed, int arr) {
             c.r = x;
             continuum_FT(c);
             const double res = continuum_residual(c, continuum_energy(c));
-            if (res <= p.residual_tol || continuum_core_energy(c, nullptr) > 0.0) break;
+            if (res <= p.residual_tol) break;
             opt.f_target = lr.f * 0.5 * p.residual_tol / res;
             opt.max_iterations = std::max<long long>(1, opt.max_iterations - lr.iterations);
         }

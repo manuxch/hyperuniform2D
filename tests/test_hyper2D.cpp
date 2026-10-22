@@ -613,6 +613,43 @@ int main() {
         check(threw, "continuum: impossible random sequential addition rejected");
     }
 
+    std::cout << "continuum kernels and threads\n";
+    {
+        ContinuumConfig c;
+        continuum_init_random(c, 70.0, 20.0, 1400, 9);
+        build_continuum_mask(c, continuum_K_of_kappa(70.0, 20.0, 1400, 0.65), 2.0);
+        bool runs_ok = !c.runs.empty();
+        std::size_t covered = 0;
+        for (const auto& r : c.runs) {
+            for (std::size_t j = 0; j < r.count; ++j)
+                runs_ok = runs_ok && c.modes[r.begin + j].kx == r.nx && c.modes[r.begin + j].ky == r.ny_lo + static_cast<int>(j);
+            runs_ok = runs_ok && r.begin == covered;
+            covered += r.count;
+        }
+        check(runs_ok && covered == c.modes.size(), std::format("mode runs cover the mask in order ({} runs)", c.runs.size()));
+        std::vector<double> g1, g4;
+        const double E1 = continuum_spectral_energy_grad(c, g1, nullptr);
+        const auto ft1 = c.ft_re;
+        ThreadPool pool(4);
+        const double E4 = continuum_spectral_energy_grad(c, g4, &pool);
+        check(E1 == E4 && ft1 == c.ft_re && g1 == g4, "rho_hat and gradient with 4 threads = 1 thread, bit for bit");
+        check(close(continuum_energy(c), continuum_energy_direct(c), 1e-10), "grouped rho_hat = direct trigonometry");
+        // Gradient by blocks against a plain per-mode sum with std::polar
+        double worst = 0.0;
+        for (const std::size_t p : {0u, 33u, 700u, 1399u}) {
+            double gx = 0.0, gy = 0.0;
+            for (std::size_t m = 0; m < c.modes.size(); ++m) {
+                const auto e = std::polar(1.0, -(c.kx[m] * c.r[2 * p] + c.ky[m] * c.r[2 * p + 1]));
+                const double s = c.weight[m] * (c.ft_re[m] * e.imag() - c.ft_im[m] * e.real());
+                gx += c.kx[m] * s;
+                gy += c.ky[m] * s;
+            }
+            worst = std::max({worst, std::abs(4.0 * gx - g1[2 * p]) / (1.0 + std::abs(4.0 * gx)),
+                              std::abs(4.0 * gy - g1[2 * p + 1]) / (1.0 + std::abs(4.0 * gy))});
+        }
+        check(worst < 1e-10, std::format("blocked gradient = per-mode sum with std::polar (worst relative {:.1e})", worst));
+    }
+
     std::cout << "continuum Monte Carlo\n";
     {
         ContinuumConfig c;
@@ -630,10 +667,9 @@ int main() {
         check(r.f_final < 0.05 * r.f_initial, std::format("MC lowers the objective ({:.3g} -> {:.3g})", r.f_initial, r.f_final));
         check(continuum_min_distance(c) >= 0.25 && continuum_core_energy(c, nullptr) == 0.0,
               std::format("MC keeps the hard core as a constraint (min distance {:.4f})", continuum_min_distance(c)));
-        std::vector<double> re(c.modes.size(), 0.0), im(c.modes.size(), 0.0);
-        continuum_FT_range(c, 0, c.modes.size(), re, im);
-        bool same = true;
-        for (std::size_t m = 0; m < c.modes.size(); ++m) same = same && re[m] == c.ft_re[m] && im[m] == c.ft_im[m];
+        ContinuumConfig fresh = c;
+        continuum_FT(fresh);
+        bool same = fresh.ft_re == c.ft_re && fresh.ft_im == c.ft_im;
         check(same, "MC leaves rho_hat consistent with the positions");
         ThreadPool pool(4);
         ContinuumConfig a, b;

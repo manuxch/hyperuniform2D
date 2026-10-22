@@ -34,6 +34,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   - Threads split ρ̂ by modes and the gradient by points, with results independent of the thread count.
   - Outputs: minimization log, S(k), and the obstacle file (`chi_convention: point_pattern`) with its `.sk`.
   - With 4 900 points, χ = 0.3 and `weight_power: 2`: residual 3.5e-21 in 15 s with 4 threads, α = 0.99.
+- **Continuum performance.** The mask is stored as runs of equal n_x; ρ̂ and the gradient loop over contiguous real arrays, the gradient is factorized along each run and computed for blocks of 32 points, and ρ̂ is summed in 32 fixed groups of points. One evaluation costs 0.7–0.95 ns per point and mode with one thread (2.9 before) and scales to 4.5× on 6 cores; results are identical for any thread count. Standard C++ only.
 - **Continuum: `init_file` and Monte Carlo.**
   - `init_file` starts from an obstacle file (lattice or continuum), whose box is used; the reader checks the format, the record count and `sha256_body` (`read_obs`).
   - `minimizer: anneal` and `anneal+lbfgs`: single-point Monte Carlo with incremental ρ̂, adaptive step (`mc_step`), the lattice schedule keys, and the hard core as a constraint.

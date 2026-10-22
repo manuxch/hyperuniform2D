@@ -7,6 +7,8 @@
 #include <random>
 #include <vector>
 
+class ThreadPool;
+
 /// Point pattern in a periodic box [0, Lx) x [0, Ly) (lengths in grain diameters, d = 1).
 ///
 /// Positions are stored interleaved, r = (x0, y0, x1, y1, ...): that vector is what the minimizer works on.
@@ -32,7 +34,14 @@ struct ContinuumConfig {
     double weight_power = 0.0;
     int nx_max = 0, ny_max = 0;      ///< Largest |nx|, |ny| in the mask
 
+    /// The modes in storage order form runs of equal nx and consecutive ny (a circle cuts each column
+    /// nx = const in one interval), so exp(-i k·r) = ex[nx] ey[ny] with ex fixed along a run. The kernels
+    /// loop over runs with contiguous real arrays, which the compiler vectorizes.
+    struct ModeRun { int nx = 0, ny_lo = 0; std::size_t begin = 0, count = 0; };
+    std::vector<ModeRun> runs;
+
     std::vector<double> ft_re, ft_im;  ///< rho_hat(k) of each mode
+    std::vector<double> part_re, part_im;  ///< Scratch: partial rho_hat of each point group (continuum_FT)
 
     double sigma = 0.0;              ///< Hard-core distance (0 = no core term)
     double core_weight = 1.0;        ///< E_core = core_weight Σ_{i<j, r<sigma} (1 - r/sigma)²
@@ -70,12 +79,15 @@ struct ContinuumMaskChoice {
 /// Throws std::invalid_argument if the mask is empty.
 void build_continuum_mask(ContinuumConfig& c, double K, double weight_power = 0.0);
 
-/// rho_hat(k) of every mode from the positions (O(N |modes|)); fills ft_re / ft_im.
-void continuum_FT(ContinuumConfig& c);
+/// rho_hat(k) of every mode from the positions (O(N |modes|)); fills ft_re / ft_im. The points are split
+/// into a fixed number of groups (at most 32, independent of the thread count); each group sums into its
+/// own buffer, the groups run in parallel on `pool` (if given) and are added in order, so the result is
+/// the same for any thread count.
+void continuum_FT(ContinuumConfig& c, ThreadPool* pool = nullptr);
 
-/// Contribution of the modes [m_begin, m_end) to rho_hat (accumulated into re / im, size |modes|).
-void continuum_FT_range(const ContinuumConfig& c, std::size_t m_begin, std::size_t m_end,
-                        std::vector<double>& re, std::vector<double>& im);
+/// Contribution of the points [p_begin, p_end) to rho_hat of every mode, accumulated into re / im
+/// (arrays of |modes| entries).
+void continuum_FT_points(const ContinuumConfig& c, std::size_t p_begin, std::size_t p_end, double* re, double* im);
 
 /// E = 2 Σ_half |rho_hat|² and E_w = 2 Σ_half w |rho_hat|², from the stored rho_hat.
 [[nodiscard]] double continuum_energy(const ContinuumConfig& c);
@@ -89,10 +101,15 @@ void continuum_FT_range(const ContinuumConfig& c, std::size_t m_begin, std::size
 
 /// Gradient of E_w with respect to the points [p_begin, p_end), from the stored rho_hat, written into
 /// g[2 p], g[2 p + 1] (g has size 2N):  dE_w/dr_j = 4 Σ_half w k Im(conj(rho_hat(k)) exp(-i k·r_j)).
+/// Points are processed in blocks with the block as the inner loop, so the loop vectorizes without a
+/// reduction across lanes; each point's sum always runs in the same order, whatever the split.
 void continuum_gradient_range(const ContinuumConfig& c, std::size_t p_begin, std::size_t p_end, std::vector<double>& g);
 
+/// Gradient of E_w for every point (resizes g to 2N), split by points on `pool` if given.
+void continuum_gradient(const ContinuumConfig& c, std::vector<double>& g, ThreadPool* pool = nullptr);
+
 /// Recomputes rho_hat and returns E_w; fills g (resized to 2N) with its gradient.
-double continuum_spectral_energy_grad(ContinuumConfig& c, std::vector<double>& g);
+double continuum_spectral_energy_grad(ContinuumConfig& c, std::vector<double>& g, ThreadPool* pool = nullptr);
 
 /// Hard-core energy E_core = core_weight Σ_{i<j, r_ij < sigma} (1 - r_ij/sigma)² (periodic distances),
 /// O(N) with a cell list; adds its gradient to g (size 2N) if g is not null. 0 if sigma = 0.

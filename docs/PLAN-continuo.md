@@ -221,7 +221,14 @@ adaptativo, núcleo duro como restricción, mismo resultado con 1 y 4 hilos. Sol
 400 puntos en 0,3 s. Como primera etapa redujo L-BFGS de 274 a 46 iteraciones con 400 puntos, pero con
 4900 (χ = 0,3, `weight_power` 2) tardó 45 s contra 15 s de L-BFGS solo: `lbfgs` sigue por defecto.
 
-**F6 — Paralelismo y rendimiento.**
+**F6 — Paralelismo y rendimiento.** ✅ Hecha (2026-10-22). Solo C++ estándar (`std::thread`, sin OpenMP ni
+directivas). Máscara en tramos de igual *n*ₓ; ρ̂ en 32 grupos fijos de puntos con sumas parciales sumadas en
+orden; gradiente factorizado por tramo y en bloques de 32 puntos con el punto como bucle interno. Resultado
+idéntico bit a bit con cualquier cantidad de hilos. E + ∇E con un hilo: 0,7–0,95 ns por par punto·modo (antes
+2,9); escala ×4,5 con 6 núcleos. *N* = 4900: 13,7 / 4,1 / 3,2 ms (1 / 4 / 6 hilos); 20 000: 171 / 52 / 39 ms;
+40 000: 640 / 182 / 142 ms. Corridas completas (4900 puntos, `weight_power` 2, 6 hilos, 4 semillas):
+χ = 0,3 → 1,0–3,8 s; χ = 0,45 → 3,1–3,4 s (antes 15 y 13 s con 4 hilos). Corregido de paso: la continuación
+de L-BFGS se cortaba si había un par justo en σ. El MC continuo conserva su núcleo anterior.
 - ρ̂ en paralelo sobre modos; ∇E sobre partículas. Tiempos hasta el *N* más grande de la campaña
   (*N* = (*L*ₓ/*a*)(*L*ᵧ/*a*), con *L*ₓ/*a* = 320).
 

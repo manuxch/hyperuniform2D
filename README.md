@@ -304,8 +304,8 @@ With `mode: continuum` the program generates point patterns with real coordinate
 
 - **Mask.** The circle 0 < |**k**| ≤ *K* in physical k, **k** = 2π(*n*<sub>*x*</sub>/*L*<sub>*x*</sub>, *n*<sub>*y*</sub>/*L*<sub>*y*</sub>), set by `kappa` (*K* = 2πκ√ρ<sub>O</sub>) or by `chi` in the point-pattern convention, χ = *M*(*K*)/[2(*N* − 1)].
 - **Objective.** The weighted residual *E*<sub>*w*</sub>/(2*MN*), about 1 for a random start, plus a hard-core term when `R` > 0: `core_weight` Σ (1 − *r*/σ)² over the pairs closer than σ = 2*R*(1 + 10⁻⁶). The start is a random sequential addition at σ. The run stops when the unweighted residual ⟨*S*⟩<sub>mask</sub> ≤ `residual_tol` (default 10⁻²⁰).
-- **Phases.** exp(−*i***k**·**r**) is the product of two axis factors obtained by recurrence (exact every 32 steps), with no trigonometry per mode.
-- **Threads.** ρ̂ is split by modes and the gradient by points; the result is the same for any thread count.
+- **Phases.** exp(−*i***k**·**r**) is the product of two axis factors obtained by recurrence (exact every 32 steps), with no trigonometry per mode. The mask is stored as runs of equal *n*<sub>*x*</sub> and consecutive *n*<sub>*y*</sub>, so the inner loops are contiguous real arrays that the compiler vectorizes; the gradient is factorized along each run and computed for blocks of 32 points with the point as the inner loop. Everything is standard C++20 (`std::thread` for the threads), with no compiler-specific directives.
+- **Threads.** ρ̂ is computed in 32 fixed groups of points, each with its own partial sums added in order, and the gradient is split by points. The result is the same, bit for bit, for any thread count. Use as many threads as physical cores (`num_threads`); hardware threads sharing a core add little.
 - **Initial configuration.** `init_file` starts from an obstacle file (lattice or continuum; its `sha256_body` is checked), whose box is used; `Lx`, `Ly`, `rho_O`, if given, must agree with it. For example, a pattern can be restarted at a larger κ, or a lattice control can be relaxed into the continuum.
 - **Monte Carlo.** `minimizer: anneal` replaces L-BFGS by simulated annealing with single-point moves, and `anneal+lbfgs` runs L-BFGS after it. A random point moves by a uniform displacement in [−*s*, *s*]², with *s* = `mc_step` (0: 0.1 *a*) adapted after each level towards an acceptance of 0.3–0.5. ρ̂ is updated incrementally and recomputed every `resync_interval` accepted moves. The hard core is a constraint: moves that create or deepen an overlap are rejected. The schedule keys are those of the lattice (`T_initial`, `T_final`, `cooling_rate`, `steps_per_temp`, `quench_steps`). The Monte Carlo alone does not reach *E* = 0: with 400 points it ends at a residual of 7 × 10⁻⁵ in 0.3 s. As a first stage it cut L-BFGS from 274 to 46 iterations with 400 points, but with 4 900 points (χ = 0.3, `weight_power: 2`) `anneal+lbfgs` took 45 s against 15 s for `lbfgs` alone, so `lbfgs` stays the default.
 - **Outputs.** The minimization log (`annealing_file`: iteration, objective, largest gradient component), *S*(*k*) up to `sk_kmax` (default 3*K*) in `sk_file`, and, with `obs_file`, the obstacle file (`mode: continuum`, `chi_convention: point_pattern`) and its `.sk`. Coordinates are folded into the box, and the residual and *d*<sub>min</sub> are recomputed from the written values. `scripts/obs_tools.py topgm` draws the pattern.
@@ -322,14 +322,25 @@ num_threads: 4
 obs_file: auto
 ```
 
-Measured with 4 900 points in 140 × 35 (aspect ratio 4), ρ<sub>O</sub> = 1, *R* = 0.1, 4 threads:
+Measured with 4 900 points in 140 × 35 (aspect ratio 4), ρ<sub>O</sub> = 1, *R* = 0.1, 6 threads on a 6-core Ryzen 5 5600X, seeds 11–14 (11–12 for `weight_power: 0`); every run reached its target:
 
 | κ | χ<sub>point</sub> | `weight_power` | Iterations | Time | Residual | Minimum distance |
 |---|---|---|---|---|---|---|
-| 0.618 | 0.30 | 0 | 1 853 | 57 s | 1.0 × 10⁻²⁰ | 0.20 *a* |
-| 0.618 | 0.30 | 2 | 253 | 15 s | 3.5 × 10⁻²¹ | 0.20 *a* |
-| 0.757 | 0.45 | 0 | 1 371 | 29 s | 9.9 × 10⁻²¹ | 0.69 *a* |
-| 0.757 | 0.45 | 2 | 564 | 13 s | 4.9 × 10⁻²¹ | 0.65 *a* |
+| 0.618 | 0.30 | 0 | 1 441–2 024 | 11–20 s | < 1.0 × 10⁻²⁰ | 0.20 *a* |
+| 0.618 | 0.30 | 2 | 97–280 | 1.0–3.8 s | < 5 × 10⁻²¹ | 0.20 *a* |
+| 0.757 | 0.45 | 0 | 1 433–1 455 | 8 s | < 1.0 × 10⁻²⁰ | 0.67–0.68 *a* |
+| 0.757 | 0.45 | 2 | 539–573 | 3.1–3.4 s | < 5 × 10⁻²¹ | 0.66–0.71 *a* |
+
+The number of iterations varies from seed to seed, and for a given seed between builds that round differently.
+
+One evaluation of the energy and its gradient costs 0.7–0.95 ns per point and mode with one thread, and scales as *N*²:
+
+| *N* | Modes (κ = 0.618) | 1 thread | 4 threads | 6 threads |
+|---|---|---|---|---|
+| 4 900 | 2 939 | 13.7 ms | 4.1 ms | 3.2 ms |
+| 10 000 | 5 991 | 49 ms | 15 ms | 11 ms |
+| 20 000 | 12 007 | 171 ms | 52 ms | 39 ms |
+| 40 000 | 23 990 | 640 ms | 182 ms | 142 ms |
 
 With `weight_power: 2`, *S* stays below 6 × 10⁻²⁰ inside the mask in every direction, returns to about 1 above *K*, and the number-variance exponent is α = 0.99 (χ = 0.3) and 1.04 (χ = 0.45). At χ = 0.3 the pattern has close pairs, and the hard core can be active: with `weight_power: 2` the closest pair ends at σ. At χ = 0.45 the pattern keeps a minimum distance of about 0.65 *a* by itself. The result is deterministic for a given binary; builds with different compiler flags round differently and follow different paths.
 
