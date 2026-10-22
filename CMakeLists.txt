@@ -20,6 +20,12 @@ add_library(hyper2d_core STATIC
     src/annealing.cpp
     src/io.cpp
     src/thread_pool.cpp
+    src/sha256.cpp
+    src/obs.cpp
+    src/continuum.cpp
+    src/minimize.cpp
+    src/continuum_driver.cpp
+    src/continuum_mc.cpp
 )
 target_include_directories(hyper2d_core PUBLIC include)
 target_compile_definitions(hyper2d_core PUBLIC HYPER2D_VERSION="${PROJECT_VERSION}")
@@ -62,6 +68,12 @@ endforeach()
 # ── Tests ────────────────────────────────────────────────────────────────────
 enable_testing()
 add_test(NAME hyper2D_unit COMMAND test_hyper2D)
+find_package(Python3 COMPONENTS Interpreter)
+if(Python3_FOUND)
+    add_test(NAME hyper2D_obs_end_to_end
+             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_obs.py
+                     $<TARGET_FILE:hyper2D> ${CMAKE_CURRENT_SOURCE_DIR}/scripts/obs_tools.py)
+endif()
 
 # ── Información al final de cmake ────────────────────────────────────────────
 message(STATUS "hyper2D    : ${PROJECT_VERSION}")

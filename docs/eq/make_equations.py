@@ -7,8 +7,10 @@ a <picture> with a prefers-color-scheme source follows the operating system, not
 and showed light text on a white page when the two differed.
 Needs Matplotlib and a LaTeX installation (amsmath, amssymb).
 
-  python3 docs/eq/make_equations.py      # from the repository root
+  python3 docs/eq/make_equations.py            # all, from the repository root
+  python3 docs/eq/make_equations.py chi fourier  # only these
 """
+import sys
 from pathlib import Path
 
 import matplotlib
@@ -20,19 +22,21 @@ matplotlib.rcParams.update({"text.usetex": True, "text.latex.preamble": r"\usepa
                             "svg.fonttype": "path", "font.size": 15})
 
 EQUATIONS = {
-    "chi": r"\chi = \frac{M_K}{d\,(n-1)} = \frac{M_K}{2\,(n-1)}",
+    "chi": r"\chi = \frac{M_K}{n_{\min}-1}, \qquad n_{\min} = \min(M,\, N_xN_y - M)",
     "weighted_energy": r"E_w = \sum_{0<|\mathbf{k}|\le K} w(\mathbf{k})\,\bigl|\hat\rho(\mathbf{k})\bigr|^2, "
                        r"\qquad w(\mathbf{k}) \propto |\mathbf{k}|^{-p}",
     "hyperuniform": r"\lim_{|\mathbf{k}|\to 0} S(\mathbf{k}) = 0",
     "fourier": r"\hat{\rho}(\mathbf{k}) = \sum_{\mathbf{r}} s(\mathbf{r})\, e^{-i\,\mathbf{k}\cdot\mathbf{r}}, "
-               r"\qquad \mathbf{k} = \frac{2\pi}{N}\,(k_x, k_y), \quad k_x, k_y \in \mathbb{Z}",
+               r"\qquad \mathbf{k} = 2\pi\Bigl(\frac{k_x}{N_x}, \frac{k_y}{N_y}\Bigr), \quad k_x, k_y \in \mathbb{Z}",
     "structure_factor": r"S(\mathbf{k}) = \frac{1}{M}\,\bigl|\hat{\rho}(\mathbf{k})\bigr|^2",
     "energy": r"E = \sum_{0<|\mathbf{k}|\le K} \bigl|\hat{\rho}(\mathbf{k})\bigr|^2",
 }
 COLOR = "#1f2328"  # GitHub's light-theme text colour
 
 out = Path(__file__).resolve().parent
-for name, tex in EQUATIONS.items():
+selected = sys.argv[1:] or list(EQUATIONS)
+for name in selected:
+    tex = EQUATIONS[name]
     fig = plt.figure(figsize=(0.01, 0.01))
     fig.text(0, 0, rf"$\displaystyle {tex}$", color=COLOR)
     fig.savefig(out / f"{name}.svg", facecolor="white", bbox_inches="tight", pad_inches=0.12)

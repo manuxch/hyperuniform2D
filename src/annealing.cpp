@@ -17,30 +17,36 @@ namespace {
 struct Proposal {
     std::size_t a = 0, b = 0;  ///< Positions in config.occupied / config.empty
     double dE = 0.0;
+    bool valid = true;         ///< false: the move breaks the hard-core exclusion (dE not computed)
 };
 
 /// Moves a random occupied site to an empty site: with probability local_fraction a random empty site
 /// within Chebyshev distance local_radius (a few draws; a site with no empty neighbour falls back to a
 /// global move), otherwise any empty site. Fills d_re / d_im and returns the energy change.
 Proposal propose(HyperuniformConfig& config, ThreadPool* pool, double local_fraction, int local_radius) {
-    const int N = config.N;
+    const int Nx = config.Nx, Ny = config.Ny;
     Proposal p;
     p.a = std::uniform_int_distribution<std::size_t>(0, config.occupied.size() - 1)(config.rng);
     const auto i = config.occupied[p.a];
-    const int xi = static_cast<int>(i % static_cast<std::uint32_t>(N)), yi = static_cast<int>(i / static_cast<std::uint32_t>(N));
+    const int xi = static_cast<int>(i % static_cast<std::uint32_t>(Nx)), yi = static_cast<int>(i / static_cast<std::uint32_t>(Nx));
     bool found = false;
     if (local_fraction > 0.0 && config.prob_dist(config.rng) < local_fraction) {
         std::uniform_int_distribution<int> step(-local_radius, local_radius);
         for (int tries = 0; tries < 8 && !found; ++tries) {
             const int dx = step(config.rng), dy = step(config.rng);
             if (dx == 0 && dy == 0) continue;
-            const auto j = static_cast<std::uint32_t>(periodic_idx(xi + dx, yi + dy, N));
+            const auto j = static_cast<std::uint32_t>(periodic_idx(xi + dx, yi + dy, Nx, Ny));
             if (config.grid[j] == 0) { p.b = config.list_pos[j]; found = true; }
         }
     }
     if (!found) p.b = std::uniform_int_distribution<std::size_t>(0, config.empty.size() - 1)(config.rng);
     const auto j = config.empty[p.b];
-    const int xj = static_cast<int>(j % static_cast<std::uint32_t>(N)), yj = static_cast<int>(j / static_cast<std::uint32_t>(N));
+    if (!config.excl.empty() && hardcore_blocked(config, j, i)) {
+        p.valid = false;
+        ++config.hc_rejections;
+        return p;
+    }
+    const int xj = static_cast<int>(j % static_cast<std::uint32_t>(Nx)), yj = static_cast<int>(j / static_cast<std::uint32_t>(Nx));
     p.dE = pool ? pool->parallel_reduce_delta_E(config, xi, yi, xj, yj)
                 : delta_energy_range(config, xi, yi, xj, yj, 0, config.modes.size());
     return p;
@@ -66,6 +72,7 @@ void accept(HyperuniformConfig& config, const Proposal& p) {
 std::optional<double> attempt_swap(HyperuniformConfig& config, double T, ThreadPool* pool,
                                    double local_fraction, int local_radius) {
     const Proposal p = propose(config, pool, local_fraction, local_radius);
+    if (!p.valid) return std::nullopt;
 
     // Metropolis criterion
     const bool accepted = (p.dE < 0.0)
@@ -113,7 +120,7 @@ AnnealReport simulated_annealing(HyperuniformConfig& config, const Parameters& p
         int n_up = 0;
         for (int s = 0; s < 400; ++s) {
             const Proposal q = propose(config, pool.get(), 0.0, 1);  // global moves, evaluated, not applied
-            if (q.dE > 0.0) { sum += q.dE; ++n_up; }
+            if (q.valid && q.dE > 0.0) { sum += q.dE; ++n_up; }
         }
         T = n_up > 0 ? (sum / n_up) / std::numbers::ln2 : 1.0;
         if (T <= p.T_final) T = 10.0 * p.T_final;

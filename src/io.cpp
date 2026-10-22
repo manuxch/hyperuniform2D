@@ -13,15 +13,15 @@ void save_PGM(const HyperuniformConfig& config, const std::string& filename,
     }
 
     // Accumulate everything in a string before dumping it to disk (one write call)
-    const auto N = static_cast<std::size_t>(config.N);
+    const auto Nx = static_cast<std::size_t>(config.Nx), Ny = static_cast<std::size_t>(config.Ny);
     std::string buf = "P2\n";
     for (const auto& c : comments) buf += "# " + c + '\n';
-    buf += std::format("{} {}\n1\n", config.N, config.N);
-    buf.reserve(buf.size() + 2 * N * N);
-    for (std::size_t y = 0; y < N; ++y) {
-        for (std::size_t x = 0; x < N; ++x) {
-            buf += config.grid[x + N * y] ? '1' : '0';
-            buf += (x + 1 < N) ? ' ' : '\n';
+    buf += std::format("{} {}\n1\n", config.Nx, config.Ny);  // width height
+    buf.reserve(buf.size() + 2 * Nx * Ny);
+    for (std::size_t y = 0; y < Ny; ++y) {
+        for (std::size_t x = 0; x < Nx; ++x) {
+            buf += config.grid[x + Nx * y] ? '1' : '0';
+            buf += (x + 1 < Nx) ? ' ' : '\n';
         }
     }
     fout << buf;

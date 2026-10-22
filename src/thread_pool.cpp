@@ -54,7 +54,7 @@ ThreadPool::ThreadPool(int num_threads) {
         start_barrier = std::make_unique<SpinBarrier>(thread_count);
         end_barrier = std::make_unique<SpinBarrier>(thread_count);
 
-        partial_deltaE.resize(static_cast<std::size_t>(thread_count));
+        partials.resize(static_cast<std::size_t>(thread_count));
 
         for (int i = 1; i < thread_count; ++i) {
             workers.emplace_back(&ThreadPool::worker_loop, this, i);
@@ -72,34 +72,38 @@ ThreadPool::~ThreadPool() {
     }
 }
 
-double ThreadPool::parallel_reduce_delta_E(HyperuniformConfig& config,
-                                           int xi, int yi, int xj, int yj) {
-    if (thread_count <= 1)
-        return delta_energy_range(config, xi, yi, xj, yj, 0, config.modes.size());
+double ThreadPool::parallel_reduce(std::size_t n, RangeFn fn, void* ctx) {
+    if (thread_count <= 1) return fn(ctx, 0, n);
 
     // Set shared state for workers (published by the barrier)
-    current_config = &config;
-    current_xi = xi; current_yi = yi;
-    current_xj = xj; current_yj = yj;
+    current_fn = fn;
+    current_ctx = ctx;
+    current_n = n;
 
     start_barrier->arrive_and_wait(); // Signal workers to start
     run_chunk(0);                     // The calling thread does chunk 0
     end_barrier->arrive_and_wait();   // Wait for workers to finish
 
     double total = 0.0;
-    for (const auto& p : partial_deltaE) total += p.value;
+    for (const auto& p : partials) total += p.value;
     return total;
 }
 
+double ThreadPool::parallel_reduce_delta_E(HyperuniformConfig& config,
+                                           int xi, int yi, int xj, int yj) {
+    auto range = [&](std::size_t begin, std::size_t end) {
+        return delta_energy_range(config, xi, yi, xj, yj, begin, end);
+    };
+    return parallel_reduce(config.modes.size(), range);
+}
+
 void ThreadPool::run_chunk(int thread_id) {
-    const std::size_t num_modes = current_config->modes.size();
     const auto threads = static_cast<std::size_t>(thread_count);
     const auto id = static_cast<std::size_t>(thread_id);
-    const std::size_t chunk = (num_modes + threads - 1) / threads;
-    const std::size_t begin = std::min(id * chunk, num_modes);
-    const std::size_t end = std::min(begin + chunk, num_modes);
-    partial_deltaE[id].value = delta_energy_range(*current_config, current_xi, current_yi,
-                                                  current_xj, current_yj, begin, end);
+    const std::size_t chunk = (current_n + threads - 1) / threads;
+    const std::size_t begin = std::min(id * chunk, current_n);
+    const std::size_t end = std::min(begin + chunk, current_n);
+    partials[id].value = current_fn(current_ctx, begin, end);
 }
 
 void ThreadPool::worker_loop(int thread_id) {

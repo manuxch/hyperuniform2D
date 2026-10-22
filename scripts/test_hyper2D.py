@@ -5,12 +5,15 @@ For the occupied sites it computes the quantities below. Which pixel value is "o
 --species: auto (default) uses the "occupied M" count written by hyper2D in the PGM comments, so files
 inverted afterwards (e.g. magick -negate) are still read correctly; without that comment, occupied = max value.
 
-  1. the number variance sigma_N^2(R) of the count in a disk of radius R, over ALL N^2 lattice centres
+  1. the number variance sigma_N^2(R) of the count in a disk of radius R, over ALL Nx Ny lattice centres
      (exact: a periodic FFT convolution of the occupation with the disk, no random sampling);
-  2. the radially averaged structure factor S(k) = |rho_hat(k)|^2 / M, k in units of 2 pi / N.
+  2. the radially averaged structure factor S(k) = |rho_hat(k)|^2 / M, with |k| the norm of the physical
+     wave vector 2 pi (kx/Nx, ky/Ny), in units of 2 pi / sqrt(Nx Ny) (2 pi / N on a square lattice).
+
+Square and rectangular (Nx x Ny) lattices are supported.
 
 Poisson-like (uncorrelated) patterns: sigma_N^2 ~ R^2.  Hyperuniform: slower than R^2 (stealthy: ~ R).
-The exponent is fitted on [--rmin, --rmax]; the default rmax = N/4 keeps the disk well below the box, where
+The exponent is fitted on [--rmin, --rmax]; the default rmax = min(Nx, Ny)/4 keeps the disk well below the box, where
 the fixed total number of particles would suppress the variance artificially.
 sigma_rho^2 = sigma_N^2 / (pi R^2)^2, so its exponent is exactly alpha - 4: it is shown, but it is not
 an independent test.
@@ -49,43 +52,48 @@ def read_pgm_p2(filename, comments=None):
     return pixels.reshape((height, width)), width, height, max_val
 
 
-def disk_kernel(L, R):
-    """Indicator of the lattice sites within distance R of the origin, on a periodic L x L grid."""
-    d = np.minimum(np.arange(L), L - np.arange(L))
-    return ((d[:, None] ** 2 + d[None, :] ** 2) <= R * R).astype(float)
+def disk_kernel(Ly, Lx, R):
+    """Indicator of the lattice sites within distance R of the origin, on a periodic Ly x Lx grid (rows, columns)."""
+    dy = np.minimum(np.arange(Ly), Ly - np.arange(Ly))
+    dx = np.minimum(np.arange(Lx), Lx - np.arange(Lx))
+    return ((dy[:, None] ** 2 + dx[None, :] ** 2) <= R * R).astype(float)
 
 
 def number_variance_fft(occ, radii):
     """Exact variance of the disk counts over all lattice centres (periodic)."""
-    L = occ.shape[0]
+    Ly, Lx = occ.shape
     F = np.fft.rfft2(occ.astype(float))
     var = []
     for R in radii:
-        counts = np.fft.irfft2(F * np.fft.rfft2(disk_kernel(L, R)), s=occ.shape)
+        counts = np.fft.irfft2(F * np.fft.rfft2(disk_kernel(Ly, Lx, R)), s=occ.shape)
         var.append(np.var(np.rint(counts)))
     return np.array(var)
 
 
-def number_variance_sample(points, L, radii, samples, rng):
+def number_variance_sample(points, Lx, Ly, radii, samples, rng):
     """Old estimator: random continuous window centres, periodic minimum-image distances."""
     var = []
     for R in radii:
-        cx, cy = rng.uniform(0, L, samples), rng.uniform(0, L, samples)
+        cx, cy = rng.uniform(0, Lx, samples), rng.uniform(0, Ly, samples)
         counts = np.empty(samples)
         for s in range(samples):
-            dx = np.abs(points[:, 0] - cx[s]); dx = np.minimum(dx, L - dx)
-            dy = np.abs(points[:, 1] - cy[s]); dy = np.minimum(dy, L - dy)
+            dx = np.abs(points[:, 0] - cx[s]); dx = np.minimum(dx, Lx - dx)
+            dy = np.abs(points[:, 1] - cy[s]); dy = np.minimum(dy, Ly - dy)
             counts[s] = np.count_nonzero(dx * dx + dy * dy <= R * R)
         var.append(np.var(counts))
     return np.array(var)
 
 
 def structure_factor(occ):
-    """Radially averaged S(k) = |rho_hat|^2 / M, bins of width 1 in |k| (units of 2 pi / L), k != 0."""
-    L = occ.shape[0]
+    """Radially averaged S(k) = |rho_hat|^2 / M, k != 0, bins of width 1 in |k|.
+
+    |k| is the norm of the physical wave vector 2 pi (kx/Nx, ky/Ny), in units of 2 pi / sqrt(Nx Ny): the bins
+    are circles in physical k, as the mask of hyper2D, and the unit is 2 pi / N on a square lattice."""
+    Ly, Lx = occ.shape
     S = np.abs(np.fft.fft2(occ.astype(float))) ** 2 / occ.sum()
-    q = np.fft.fftfreq(L, 1.0 / L)
-    k = np.sqrt(q[:, None] ** 2 + q[None, :] ** 2)
+    qy = np.fft.fftfreq(Ly, 1.0 / Ly)
+    qx = np.fft.fftfreq(Lx, 1.0 / Lx)
+    k = np.sqrt(qy[:, None] ** 2 * (Lx / Ly) + qx[None, :] ** 2 * (Ly / Lx))
     b = np.rint(k).astype(int)
     mask = k > 0
     nb = b.max() + 1
@@ -115,9 +123,8 @@ def main():
     print(f"Reading file: {args.filename}...")
     comments = []
     pixels, width, height, max_val = read_pgm_p2(args.filename, comments)
-    if width != height:
-        sys.exit("Error: the analysis assumes a square periodic lattice.")
-    L = width
+    Lx, Ly = width, height
+    L_short = min(Lx, Ly)
     occ = pixels == max_val  # occupied = max value (1 in hyper2D output), whatever their fraction
     if args.species == "min":
         occ = pixels == pixels.min()
@@ -131,12 +138,12 @@ def main():
                       "value: the image was inverted; analysing the occupied sites.")
                 occ = alt
     M = int(occ.sum())
-    rho = M / (L * L)
-    print(f"Image: {L}x{L}, {M} occupied sites, density {rho:.4f}")
+    rho = M / (Lx * Ly)
+    print(f"Image: {Lx}x{Ly}, {M} occupied sites, density {rho:.4f}")
 
-    rmax = args.rmax if args.rmax is not None else L / 4.0
-    if not (0 < args.rmin < rmax <= L / 2):
-        sys.exit(f"Error: need 0 < rmin < rmax <= N/2 (got {args.rmin}, {rmax}).")
+    rmax = args.rmax if args.rmax is not None else L_short / 4.0
+    if not (0 < args.rmin < rmax <= L_short / 2):
+        sys.exit(f"Error: need 0 < rmin < rmax <= min(Nx, Ny)/2 (got {args.rmin}, {rmax}).")
     radii = np.linspace(args.rmin, rmax, args.n_radii)
 
     print(f"Number variance ({args.method}) for R in [{args.rmin:g}, {rmax:g}]...")
@@ -144,7 +151,7 @@ def main():
         var_N = number_variance_fft(occ, radii)
     else:
         pts = np.argwhere(occ)[:, [1, 0]].astype(float)
-        var_N = number_variance_sample(pts, L, radii, args.samples, np.random.default_rng(args.seed))
+        var_N = number_variance_sample(pts, Lx, Ly, radii, args.samples, np.random.default_rng(args.seed))
     if np.any(var_N <= 0):
         sys.exit("Error: zero variance at some radius (perfectly regular pattern?): no log-log fit possible.")
     var_rho = var_N / (np.pi * radii ** 2) ** 2
@@ -153,7 +160,9 @@ def main():
     alpha, c_N = np.polyfit(log_R, np.log(var_N), 1)
     beta = alpha - 4.0
     k, S = structure_factor(occ)
-    low = k <= max(2.0, 0.05 * L)
+    k_unit = "2pi/N" if Lx == Ly else "2pi/sqrt(NxNy)"
+    k_half = np.sqrt(Lx * Ly) / 2.0  # physical |k| = pi (Nyquist of a unit lattice), in units of 2 pi / sqrt(Nx Ny)
+    low = k <= max(2.0, 0.1 * k_half)
 
     print("\n" + "=" * 64)
     print("                 EXPERIMENTAL FIT RESULTS")
@@ -161,7 +170,7 @@ def main():
     print(f"-> Exponent of var_N (alpha)   : {alpha:.3f}")
     print("   [Poisson = 2 | hyperuniform < 2 (stealthy ~ 1)]")
     print(f"-> Exponent of var_rho (beta)  : {beta:.3f}  (= alpha - 4 by definition)")
-    print(f"-> <S(k)> for |k| <= {k[low].max():.1f} (2pi/N) : {S[low].mean():.4g}"
+    print(f"-> <S(k)> for |k| <= {k[low].max():.1f} ({k_unit}) : {S[low].mean():.4g}"
           f"   [uncorrelated lattice gas: 1 - rho = {1 - rho:.4f}]")
     print("=" * 64 + "\n")
 
@@ -189,10 +198,11 @@ def main():
     ax.set_xlabel(r'$R$'); ax.set_ylabel(r'$\sigma_\rho^2$'); ax.legend(); ax.grid(True, which="both", ls="--", alpha=0.4)
 
     ax = axs[2]
-    shown = k <= L / 2  # the corners of the zone (|k| up to N/sqrt(2)) are not plotted
+    shown = k <= k_half  # the corners of the zone are not plotted
     ax.plot(k[shown], S[shown], '.-', color='tab:green', ms=3)
     ax.axhline(1 - rho, color='gray', ls='--', label=r'$1-\rho$ (uncorrelated)')
-    ax.set_xlabel(r'$|k|$ ($2\pi/N$)'); ax.set_ylabel(r'$S(k)$'); ax.set_xlim(0, L / 2)
+    ax.set_xlabel(r'$|k|$ ($2\pi/N$)' if Lx == Ly else r'$|k|$ ($2\pi/\sqrt{N_xN_y}$)')
+    ax.set_ylabel(r'$S(k)$'); ax.set_xlim(0, k_half)
     ax.set_ylim(-0.03, 1.1 * max(S[shown].max(), 1 - rho))
     ax.legend(); ax.grid(True, ls="--", alpha=0.4)
 

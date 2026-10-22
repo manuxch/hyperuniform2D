@@ -3,6 +3,7 @@
 #include "config.hpp"
 
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <thread>
@@ -37,6 +38,23 @@ public:
     ThreadPool(const ThreadPool&) = delete;
     ThreadPool& operator=(const ThreadPool&) = delete;
 
+    /// Range function: processes [begin, end) and returns that range's partial sum.
+    using RangeFn = double (*)(void* ctx, std::size_t begin, std::size_t end);
+
+    /// Splits [0, n) into one contiguous chunk per thread (chunk = ceil(n / threads), the calling thread
+    /// takes chunk 0), runs fn on each and returns the sum of the partial results, added in thread order.
+    /// With one thread it calls fn(ctx, 0, n). The split and the order of the sum depend only on n and
+    /// the thread count, so the result is deterministic.
+    double parallel_reduce(std::size_t n, RangeFn fn, void* ctx);
+
+    /// Same for any callable double(std::size_t begin, std::size_t end); f must outlive the call.
+    template <class F>
+    double parallel_reduce(std::size_t n, F& f) {
+        return parallel_reduce(n, [](void* c, std::size_t b, std::size_t e) {
+            return (*static_cast<F*>(c))(b, e);
+        }, &f);
+    }
+
     /// Splits the modes [0, |modes|) among the threads; each one fills its part of d_re / d_im
     /// (delta_energy_range). Returns the total energy change of moving (xi, yi) -> (xj, yj).
     double parallel_reduce_delta_E(HyperuniformConfig& config,
@@ -46,7 +64,7 @@ public:
 
 private:
     void worker_loop(int thread_id);
-    void run_chunk(int thread_id);  ///< delta_energy_range on this thread's share of the modes
+    void run_chunk(int thread_id);  ///< current_fn on this thread's share of [0, current_n)
 
     int thread_count;
     std::vector<std::thread> workers;
@@ -57,11 +75,11 @@ private:
 
     // Shared state for the current job
     std::atomic<bool> terminate_pool{false};
-    HyperuniformConfig* current_config = nullptr;
-    int current_xi = 0, current_yi = 0;
-    int current_xj = 0, current_yj = 0;
+    RangeFn     current_fn = nullptr;
+    void*       current_ctx = nullptr;
+    std::size_t current_n = 0;
 
     // Partial sums calculated by each thread, one cache line each (no false sharing)
     struct alignas(64) Partial { double value = 0.0; };
-    std::vector<Partial> partial_deltaE;
+    std::vector<Partial> partials;
 };

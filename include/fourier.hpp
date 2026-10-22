@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <string>
+#include <vector>
 
 /// Calculates the Fourier sums of the mask from scratch (O(M·|modes|), table look-ups).
 void calculate_FT(HyperuniformConfig& config);
@@ -33,6 +34,18 @@ void calculate_FT(HyperuniformConfig& config);
 /// Independent reference: E over the full mask (both ±k) by direct trigonometry, no tables.
 /// For tests and verification only: O(M·|modes|) with sin/cos.
 [[nodiscard]] double energy_direct(const HyperuniformConfig& config);
+
+/// Radially averaged S(k) = |rho_hat(k)|² / M over the whole Brillouin zone (k ≠ 0): bins of width 1 in |k|
+/// (units of 2π/sqrt(Nx Ny), 2π/N if square), circles in physical k. Empty bins are omitted.
+struct RadialSk {
+    std::vector<double>    k;      ///< Mean |k| of the bin
+    std::vector<double>    S;      ///< Mean S of the bin
+    std::vector<long long> count;  ///< Wave vectors in the bin
+};
+[[nodiscard]] RadialSk radial_structure_factor(const HyperuniformConfig& config);
+
+/// Writes `sk` (from radial_structure_factor) to `filename`.
+void analyze_structure_factor(const HyperuniformConfig& config, const std::string& filename, const RadialSk& sk);
 
 /// Writes the radially averaged structure factor S(k) = |rho_hat(k)|² / M of the final configuration
 /// over the whole Brillouin zone (k ≠ 0), in bins of width 1 in |k| (units of 2π/N).

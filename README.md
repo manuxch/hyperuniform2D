@@ -4,7 +4,7 @@
 
 Generator for hyperuniform points in a 2D square grid
 
-This repository contains a C++20 program that generates **stealthy hyperuniform binary patterns** on an *N* × *N* square lattice with periodic boundaries. The patterns are obtained by **Metropolis simulated annealing** of an energy built from the structure factor *S*(**k**).
+This repository contains a C++20 program that generates **stealthy hyperuniform binary patterns** on a periodic *N*<sub>*x*</sub> × *N*<sub>*y*</sub> lattice (square or rectangular). The patterns are obtained by **Metropolis simulated annealing** of an energy built from the structure factor *S*(**k**). A **continuum mode** generates point patterns with real coordinates by L-BFGS minimization of the same energy, and both modes can write the obstacle files of hyperGalton2D.
 
 The output is a configuration of occupied and empty sites that suppresses large-scale density fluctuations. That is the defining property of disordered systems with hidden order, relevant in photonics, granular materials and biology.
 
@@ -140,20 +140,58 @@ A value that cannot be parsed, or one out of range, stops the program with a mes
 
 ## Stealthiness χ
 
-The number of constrained wave vectors is set by the **stealthiness** parameter of Torquato and coworkers (Batten, Stillinger & Torquato 2008; Zhang, Stillinger & Torquato 2015):
+The number of constrained wave vectors is measured by a **stealthiness** parameter in the spirit of Torquato and coworkers (Batten, Stillinger & Torquato 2008; Zhang, Stillinger & Torquato 2015). On the lattice the program uses the **`binary_lattice` convention**:
 
-<p align="center"><img src="docs/eq/chi.svg" alt="\chi = \frac{M_K}{d\,(n-1)} = \frac{M_K}{2\,(n-1)}"></p>
+<p align="center"><img src="docs/eq/chi.svg" alt="\chi = \frac{M_K}{n_{\min}-1}, \qquad n_{\min} = \min(M,\, N_xN_y - M)"></p>
 
-- *M*<sub>*K*</sub> is the number of independently constrained wave vectors with 0 < |**k**| ≤ *K*.
-- Because ρ̂(−**k**) = ρ̂(**k**)\*, each ±**k** pair counts once, so *M*<sub>*K*</sub> is the number of half-plane modes in the mask.
-- *n* is the number of points. On the lattice, the empty sites have the same |ρ̂(**k**)| as the occupied ones for every nonzero **k**, so the program uses the minority species, *n* = min(*M*, *N*² − *M*).
-- χ is the ratio of independent real constraints (2*M*<sub>*K*</sub>) to real degrees of freedom (*d*(*n* − 1)).
+- *M*<sub>*K*</sub> is the number of constrained wave vectors with 0 < |**k**| ≤ *K*. Because ρ̂(−**k**) = ρ̂(**k**)\*, each ±**k** pair counts once, so *M*<sub>*K*</sub> is the number of half-plane modes in the mask.
+- *n*<sub>min</sub> is the minority species. On the lattice, the empty sites have the same |ρ̂(**k**)| as the occupied ones for every nonzero **k**.
+- χ is the ratio of independent real constraints (2*M*<sub>*K*</sub>, a real and an imaginary part per pair) to real degrees of freedom (2(*n*<sub>min</sub> − 1)).
 
-For χ < 1/2, stealthy ground states are disordered, and they become more ordered as χ grows. For χ > 1/2 they crystallize, and the program warns.
+This is **not** the χ of point patterns, χ<sub>point</sub> = *M*<sub>*K*</sub> / [2(*N* − 1)] for *N* points in two dimensions. That one is used in the continuum literature and in the obstacle file format of hyperGalton2D (`chi_convention: point_pattern`). For density < 1/2 and the same mask, the lattice χ is about twice χ<sub>point</sub>. Versions up to 2.1.0 displayed the equation of this section as *M*<sub>*K*</sub>/[2(*n* − 1)], but the program has always computed *M*<sub>*K*</sub>/(*n* − 1); only the documentation was wrong.
 
-With `chi > 0`, the program picks the integer *K*² whose χ is closest to the target. All the modes of a shell *k*<sub>*x*</sub>² + *k*<sub>*y*</sub>² = const enter together, so the achieved χ is discrete; it is printed and recorded in the PGM header. With `chi: 0` (the default), the mask is set by `K`, and the program still reports the resulting χ. If both are given, `chi` wins and the program warns.
+The program prints both values and the dimensionless mask radius κ = *K a* / 2π, where *a* = (*N*<sub>*x*</sub>*N*<sub>*y*</sub>/*M*)<sup>1/2</sup> is the mean spacing of the occupied sites. κ does not depend on the box shape or on the convention, so patterns from different generators are compared at equal κ (or equal *K*), never at equal χ. Counting modes by area gives χ<sub>point</sub> ≈ πκ²/4.
 
-On a lattice the annealing does not reach *E* = 0 exactly for χ ≈ 0.2–0.4. The program therefore reports the residual ⟨*S*⟩<sub>mask</sub> / (1 − ρ): 1 for the random start, 0 for a perfectly stealthy pattern. It is typically 1–2 % at χ = 0.3.
+The disordered regime of the continuum, χ<sub>point</sub> < 1/2, has no exact counterpart on the lattice. There the annealing leaves a residual that grows quickly with *K*: see [Residual on the lattice](#residual-on-the-lattice). The program warns when χ<sub>point</sub> > 1/2 and when the lattice χ > 1/2.
+
+The mask can be set in three ways; if more than one is given, `kappa` wins over `chi`, and `chi` over `K`:
+
+- `kappa > 0`: *K* = κ √*M* in units of 2π/√(*N*<sub>*x*</sub>*N*<sub>*y*</sub>).
+- `chi > 0`: the shell whose lattice χ is closest to the target. All the modes of a shell (same |**k**|) enter together, so the achieved χ is discrete; it is printed and recorded in the PGM header.
+- `K`, in units of 2π/*N*: only for square lattices, as in version 2.x.
+
+On a lattice the annealing does not reach *E* = 0. The program therefore reports the residual ⟨*S*⟩<sub>mask</sub> / (1 − ρ): 1 for the random start, 0 for a perfectly stealthy pattern. It is typically 1–2 % at a lattice χ = 0.3.
+
+### Residual on the lattice
+
+Measured on a 128 × 128 lattice, density 0.3, `weight_power: 2`, automatic *T*<sub>initial</sub>, `T_final: 0.001`, `local_fraction: 0.5`, `quench_steps: 400000`, one seed. The point-pattern χ is that of the continuum pattern with the same κ.
+
+| Lattice χ | χ<sub>point</sub> | κ | Residual, `cooling_rate: 0.9`, 3 000 steps | `0.97`, 20 000 steps | `0.99`, 60 000 steps |
+|---|---|---|---|---|---|
+| 0.2 | 0.10 | 0.36 | 0.0084 | 0.0065 | — |
+| 0.6 | 0.30 | 0.62 | 0.078 | 0.064 | 0.054 |
+| 0.9 | 0.45 | 0.76 | 0.16 | 0.133 | 0.119 |
+
+The three schedules make about 0.55, 12.8 and 113 million proposals. Two hundred times more proposals lower the residual by only about 30 %. On the lattice, a pattern at the K of the continuum values χ<sub>point</sub> = 0.3 and 0.45 stays far from stealthy at this density.
+
+The residual is set by the **occupation density ρ**, not by the schedule. At fixed κ = 0.618 (χ<sub>point</sub> = 0.3), about 4 900 occupied sites and the `0.97` schedule, it is close to 0.2 ρ:
+
+| ρ | Lattice | Mean spacing *a* (sites) | Residual | Residual, `min_distance` = 0.4 *a* |
+|---|---|---|---|---|
+| 0.30 | 128 × 128 | 1.83 | 0.066 | — |
+| 0.15 | 181 × 181 | 2.58 | 0.030 | — |
+| 0.08 | 248 × 248 | 3.54 | 0.016 | — |
+| 0.04 | 350 × 350 | 5.00 | 0.0076 | 0.0079 |
+| 0.02 | 495 × 495 | 7.07 | 0.0040 | 0.0039 (second seed: 0.0038) |
+| 0.01 | 700 × 700 | 10.0 | — | 0.0019 |
+
+The cost per proposal depends on the number of modes, which is fixed by κ and the number of occupied sites, so every run took about 2 minutes. A finer lattice brings the pattern closer to the continuum. Rounding a point pattern to a lattice of spacing *a*<sub>lattice</sub> gives *S* ≈ (*K a*<sub>lattice</sub>)²/12 ∝ κ²ρ at the edge of the mask, and the annealing removes most of it.
+
+At χ<sub>point</sub> = 0.45 (κ = 0.757, lattice χ 0.90) the residual is about three times larger: 0.0113 at ρ = 0.02 and 0.0064 at ρ = 0.01 (`min_distance` = 0.4 *a*, α = 0.95–0.99). There the pattern keeps by itself a minimum distance of 0.58–0.67 *a*, so the exclusion is not active.
+
+For a lattice control of the continuum patterns, use a fine lattice, ρ ≤ 0.02, with `R` (or `min_distance`) set: about 0.004 at χ<sub>point</sub> = 0.3, and ρ ≈ 0.006 for a similar residual at χ<sub>point</sub> = 0.45.
+
+Without exclusion, the closest pairs are at one lattice spacing: on a fine lattice a few pairs (1.6 % of the points at ρ = 0.02) sit on neighbouring sites. `min_distance` forbids that. Up to 0.5 *a* it does not change the residual.
 
 ## Weighting the long wavelengths (`weight_power`)
 
@@ -206,13 +244,94 @@ Measured on a Ryzen 5 5600X (6 cores, 12 hardware threads), in µs per proposal 
 
 The file names are set in the parameter file.
 
-1. **`hyperuniform.pgm`**: the final configuration as a plain-text PGM image (P2), with 1 = occupied and 0 = empty.
-   - Comment lines after the magic number record the version, *N*, density, *K*, χ (achieved and target), seed, energies, residuals and `weight_power`. PGM readers skip them.
+1. **`hyperuniform.pgm`**: the final configuration as a plain-text PGM image (P2), with 1 = occupied and 0 = empty, *N*<sub>*x*</sub> pixels wide and *N*<sub>*y*</sub> high.
+   - Comment lines after the magic number record the version, *N*, density, *K*, χ (achieved and target), seed, energies, residuals and `weight_power`. On a rectangular lattice they also record *N*<sub>*x*</sub>, *N*<sub>*y*</sub>, κ and χ in both conventions. PGM readers skip them.
    - Image viewers show the occupied sites in white. To draw them in black, invert the image: `magick input.pgm -negate -compress none output.pgm`. The analysis script still recognises the occupied sites of an inverted file, from the count recorded in the header.
 2. **`annealing.dat`**: one line per temperature level, with temperature `T`, energy (`E`, or `E_w` with weights), cumulative acceptance rate `acc/rate` and the acceptance rate of that level `acc/level`. Every proposal is a genuine occupied ↔ empty swap. Use it to tune the cooling schedule.
-3. **`sk.dat`**: radially averaged structure factor *S*(*k*) = |ρ̂(**k**)|² / *M* over the whole Brillouin zone (all nonzero **k**, bins of width 1 in units of 2π/*N*).
+3. **`sk.dat`**: radially averaged structure factor *S*(*k*) = |ρ̂(**k**)|² / *M* over the whole Brillouin zone (all nonzero **k**, bins of width 1 in units of 2π/√(*N*<sub>*x*</sub>*N*<sub>*y*</sub>), i.e. 2π/*N* on a square lattice).
    - Columns: mean |*k*| of the bin, *S*(*k*) and number of modes.
    - For an uncorrelated lattice gas, *S* = 1 − ρ.
+4. **`.obs` and `.sk`** (with `obs_file`): the obstacle file of hyperGalton2D and its structure-factor companion; see [Obstacle files](#obstacle-files-for-hypergalton2d).
+
+With `realizations` > 1, every output name gets `_arrNNN` before its extension.
+
+## Obstacle files for hyperGalton2D
+
+With `obs_file`, the program also writes the pattern in the obstacle file format of hyperGalton2D, version 1 (`docs/formats/obstacles-format.pdf` in that project). Lengths are in grain diameters, *d* = 1. The occupied site (*i*, *j*) becomes an obstacle at (*i a*, *j a*), with *a* = `lattice_constant`.
+
+- **Header.** Every required key and, for `class: stealthy`, the diagnostics:
+  - `K` in *d*⁻¹ with the 2π included, written halfway between the outermost shell of the mask and the next one, so that a reader that rebuilds the circle |**k**| ≤ *K* from `K`, `Lx` and `Ly` gets the same modes;
+  - `n_constrained_modes`, *M*(*K*) in a half space;
+  - `chi_convention: binary_lattice` and `chi`;
+  - `kappa`, `residual_S` (⟨*S*⟩<sub>mask</sub>/(1 − ρ)) and `lattice_constant`.
+- **Values derived from the body.** `n_obstacles`, `rho_O`, `d_min` (minimum image in x only for `periodic_x`), `kappa` and `sha256_body` are computed from the numbers exactly as written. Every real is written with the shortest representation that reads back as the same double, and the body is ordered by *y*, then *x*. The body is reproducible byte for byte; only `created` changes from day to day.
+- **No overlaps.** `R` implies a hard-core exclusion of 2*R*/*a* (slightly more, so that rounding cannot break it), so the file always satisfies *d*<sub>min</sub> ≥ 2*R*.
+- **Physical box.** With `Lx`, `Ly` and `rho_O` the program derives the lattice from the occupation fraction `density`: *a* = *L*<sub>*x*</sub>/*N*<sub>*x*</sub> with *N*<sub>*x*</sub> = round(*L*<sub>*x*</sub>/√(`density`/ρ<sub>O</sub>)), so *L*<sub>*x*</sub> is exact. *L*<sub>*y*</sub> is the closest multiple of *a*, and the occupation is set so that the obstacle density stays ρ<sub>O</sub>.
+- **File name.** `obs_file: auto` uses the recommended name `stealthy_rho<ρ>_Lx<Lx>_Ly<Ly>_arr<NNN>.obs`. `arr_index` and `realizations` number a series with consecutive seeds.
+- **Companion.** `<name>.sk` has the radially averaged *S*(*k*), *k* in *d*⁻¹, with the `sha256_body` of its `.obs`.
+
+A lattice control at χ<sub>point</sub> = 0.3 for a box of 160 × 40 *d* at ρ<sub>O</sub> = 0.2 (see [Residual on the lattice](#residual-on-the-lattice) for the occupation):
+
+```
+Lx: 160
+Ly: 40
+rho_O: 0.2
+density: 0.02
+R: 0.2
+kappa: 0.618
+weight_power: 2
+boundary: periodic_x
+obs_file: auto
+realizations: 100
+```
+
+`scripts/obs_tools.py` checks and views the files:
+
+```bash
+python3 scripts/obs_tools.py validate stealthy_*.obs
+```
+
+```bash
+python3 scripts/obs_tools.py topgm stealthy_rho0.199991_Lx160_Ly40.1581_arr000.obs --px-per-d 10 --y-up
+```
+
+- `validate` applies the eight rules of a version-1 reader, plus the file conventions, the keys required for `class: stealthy`, the mask (the circle |**k**| ≤ *K* must hold `n_constrained_modes` modes), `kappa`, `chi`, and the free-gap warning. The exit code is 1 if any file fails.
+- `topgm` writes a PGM. In mode `lattice` it gives one pixel per site, identical to the PGM of hyper2D; with `--px-per-d` it draws disks of radius *R*. `--y-up` puts the top of the domain in the first row, and `--binary` writes a binary PGM (P5).
+
+## Continuum mode
+
+With `mode: continuum` the program generates point patterns with real coordinates in a periodic box *L*<sub>*x*</sub> × *L*<sub>*y*</sub> (grain diameters), with *N* = round(ρ<sub>O</sub> *L*<sub>*x*</sub>*L*<sub>*y*</sub>) points. In the continuum *E* = 0 is reached in the disordered regime, so instead of the annealing the program minimizes the energy with L-BFGS, as in the literature (Uche, Stillinger & Torquato 2004; Zhang, Stillinger & Torquato 2015).
+
+- **Mask.** The circle 0 < |**k**| ≤ *K* in physical k, **k** = 2π(*n*<sub>*x*</sub>/*L*<sub>*x*</sub>, *n*<sub>*y*</sub>/*L*<sub>*y*</sub>), set by `kappa` (*K* = 2πκ√ρ<sub>O</sub>) or by `chi` in the point-pattern convention, χ = *M*(*K*)/[2(*N* − 1)].
+- **Objective.** The weighted residual *E*<sub>*w*</sub>/(2*MN*), about 1 for a random start, plus a hard-core term when `R` > 0: `core_weight` Σ (1 − *r*/σ)² over the pairs closer than σ = 2*R*(1 + 10⁻⁶). The start is a random sequential addition at σ. The run stops when the unweighted residual ⟨*S*⟩<sub>mask</sub> ≤ `residual_tol` (default 10⁻²⁰).
+- **Phases.** exp(−*i***k**·**r**) is the product of two axis factors obtained by recurrence (exact every 32 steps), with no trigonometry per mode.
+- **Threads.** ρ̂ is split by modes and the gradient by points; the result is the same for any thread count.
+- **Initial configuration.** `init_file` starts from an obstacle file (lattice or continuum; its `sha256_body` is checked), whose box is used; `Lx`, `Ly`, `rho_O`, if given, must agree with it. For example, a pattern can be restarted at a larger κ, or a lattice control can be relaxed into the continuum.
+- **Monte Carlo.** `minimizer: anneal` replaces L-BFGS by simulated annealing with single-point moves, and `anneal+lbfgs` runs L-BFGS after it. A random point moves by a uniform displacement in [−*s*, *s*]², with *s* = `mc_step` (0: 0.1 *a*) adapted after each level towards an acceptance of 0.3–0.5. ρ̂ is updated incrementally and recomputed every `resync_interval` accepted moves. The hard core is a constraint: moves that create or deepen an overlap are rejected. The schedule keys are those of the lattice (`T_initial`, `T_final`, `cooling_rate`, `steps_per_temp`, `quench_steps`). The Monte Carlo alone does not reach *E* = 0: with 400 points it ends at a residual of 7 × 10⁻⁵ in 0.3 s. As a first stage it cut L-BFGS from 274 to 46 iterations with 400 points, but with 4 900 points (χ = 0.3, `weight_power: 2`) `anneal+lbfgs` took 45 s against 15 s for `lbfgs` alone, so `lbfgs` stays the default.
+- **Outputs.** The minimization log (`annealing_file`: iteration, objective, largest gradient component), *S*(*k*) up to `sk_kmax` (default 3*K*) in `sk_file`, and, with `obs_file`, the obstacle file (`mode: continuum`, `chi_convention: point_pattern`) and its `.sk`. Coordinates are folded into the box, and the residual and *d*<sub>min</sub> are recomputed from the written values. `scripts/obs_tools.py topgm` draws the pattern.
+
+```
+mode: continuum
+Lx: 140
+Ly: 35
+rho_O: 1
+kappa: 0.618
+R: 0.1
+weight_power: 2
+num_threads: 4
+obs_file: auto
+```
+
+Measured with 4 900 points in 140 × 35 (aspect ratio 4), ρ<sub>O</sub> = 1, *R* = 0.1, 4 threads:
+
+| κ | χ<sub>point</sub> | `weight_power` | Iterations | Time | Residual | Minimum distance |
+|---|---|---|---|---|---|---|
+| 0.618 | 0.30 | 0 | 1 853 | 57 s | 1.0 × 10⁻²⁰ | 0.20 *a* |
+| 0.618 | 0.30 | 2 | 253 | 15 s | 3.5 × 10⁻²¹ | 0.20 *a* |
+| 0.757 | 0.45 | 0 | 1 371 | 29 s | 9.9 × 10⁻²¹ | 0.69 *a* |
+| 0.757 | 0.45 | 2 | 564 | 13 s | 4.9 × 10⁻²¹ | 0.65 *a* |
+
+With `weight_power: 2`, *S* stays below 6 × 10⁻²⁰ inside the mask in every direction, returns to about 1 above *K*, and the number-variance exponent is α = 0.99 (χ = 0.3) and 1.04 (χ = 0.45). At χ = 0.3 the pattern has close pairs, and the hard core can be active: with `weight_power: 2` the closest pair ends at σ. At χ = 0.45 the pattern keeps a minimum distance of about 0.65 *a* by itself. The result is deterministic for a given binary; builds with different compiler flags round differently and follow different paths.
 
 ## Hyperuniformity analysis tool
 
@@ -277,11 +396,11 @@ This program generates **stealthy** hyperuniform patterns, in which *S*(**k**) i
 
 ### System representation
 
-Consider an *N* × *N* square lattice with periodic boundary conditions. Each site **r** = (*x*, *y*) is occupied, *s*(**r**) = 1, or empty, *s*(**r**) = 0. The occupation fraction is ρ = *M* / *N*², where *M* is the number of occupied sites.
+Consider an *N*<sub>*x*</sub> × *N*<sub>*y*</sub> lattice of unit spacing with periodic boundary conditions (*N*<sub>*x*</sub> = *N*<sub>*y*</sub> = *N* for a square lattice). Each site **r** = (*x*, *y*) is occupied, *s*(**r**) = 1, or empty, *s*(**r**) = 0. The occupation fraction is ρ = *M* / (*N*<sub>*x*</sub>*N*<sub>*y*</sub>), where *M* is the number of occupied sites.
 
 The discrete Fourier transform of the occupation is
 
-<p align="center"><img src="docs/eq/fourier.svg" alt="\hat{\rho}(\mathbf{k}) = \sum_{\mathbf{r}} s(\mathbf{r})\, e^{-i \mathbf{k} \cdot \mathbf{r}}, \qquad \mathbf{k} = \frac{2\pi}{N}(k_x, k_y), \quad k_x,k_y \in \mathbb{Z},"></p>
+<p align="center"><img src="docs/eq/fourier.svg" alt="\hat{\rho}(\mathbf{k}) = \sum_{\mathbf{r}} s(\mathbf{r})\, e^{-i \mathbf{k} \cdot \mathbf{r}}, \qquad \mathbf{k} = 2\pi\Bigl(\frac{k_x}{N_x}, \frac{k_y}{N_y}\Bigr), \quad k_x,k_y \in \mathbb{Z},"></p>
 
 and the structure factor is
 
@@ -291,7 +410,9 @@ normalised by the number of points (the usual convention). An uncorrelated latti
 
 ### Stealthy hyperuniformity condition
 
-All modes with 0 < |**k**| ≤ *K* (in units of 2π/*N*) are constrained. *S*(**k**) = 0 there is equivalent to ρ̂(**k**) = 0.
+All modes with 0 < |**k**| ≤ *K* are constrained. *S*(**k**) = 0 there is equivalent to ρ̂(**k**) = 0.
+
+The mask is a **circle in physical k-space**, (*k*<sub>*x*</sub>/*N*<sub>*x*</sub>)² + (*k*<sub>*y*</sub>/*N*<sub>*y*</sub>)² ≤ (*K*/2π)², with *K* per unit spacing. With *N*<sub>*x*</sub> ≠ *N*<sub>*y*</sub> it is an ellipse in the integer indices. A circle in the indices would be an ellipse in **k**, and would give a directionally hyperuniform pattern. The program selects the modes with the exact integer key *q* = *k*<sub>*x*</sub>²*N*<sub>*y*</sub>² + *k*<sub>*y*</sub>²*N*<sub>*x*</sub>², proportional to |**k**|², so rounding never splits a shell. Internally *K* is expressed in units of 2π/√(*N*<sub>*x*</sub>*N*<sub>*y*</sub>), which is 2π/*N* on a square lattice.
 
 ### Optimization problem
 
@@ -305,10 +426,10 @@ Internally only the half plane of **k** is stored, because ρ̂(−**k**) = ρ̂
 
 ## Algorithm
 
-1. **Initialization**: *M* = round(ρ *N*²) particles are placed at random.
+1. **Initialization**: *M* = round(ρ *N*<sub>*x*</sub>*N*<sub>*y*</sub>) particles are placed at random.
 2. **Mask construction**:
-   - All half-plane wave vectors with 0 < |**k**| ≤ *K* are selected, with |*k*<sub>*x*</sub>|, |*k*<sub>*y*</sub>| < *N*/2. *K* is either given or derived from χ.
-   - The phase factors are table look-ups, exp(−2π*i*(*k*<sub>*x*</sub>*x* + *k*<sub>*y*</sub>*y*)/*N*) = *w*[(*k*<sub>*x*</sub>*x* + *k*<sub>*y*</sub>*y*) mod *N*], so the annealing loop does no trigonometry.
+   - All half-plane wave vectors with 0 < |**k**| ≤ *K* are selected, with |*k*<sub>*x*</sub>| < *N*<sub>*x*</sub>/2 and |*k*<sub>*y*</sub>| < *N*<sub>*y*</sub>/2; the whole circle must fit inside these limits. *K* is given, or derived from κ or χ.
+   - The phase factors are table look-ups. With *L* = lcm(*N*<sub>*x*</sub>, *N*<sub>*y*</sub>), exp(−2π*i*(*k*<sub>*x*</sub>*x*/*N*<sub>*x*</sub> + *k*<sub>*y*</sub>*y*/*N*<sub>*y*</sub>)) = *w*[(*k*<sub>*x*</sub>*x L*/*N*<sub>*x*</sub> + *k*<sub>*y*</sub>*y L*/*N*<sub>*y*</sub>) mod *L*], so the annealing loop does no trigonometry. *L* must not exceed 2²⁴; on a square lattice *L* = *N*.
 3. **Initial Fourier transform**: ρ̂(**k**) is evaluated for all modes in the mask.
 4. **Simulated annealing**:
    - **Proposal.** Each step takes a random occupied site and an empty site, both drawn from the lists of occupied and empty sites. The empty site is a random one or, with probability `local_fraction`, a neighbour within Chebyshev distance `local_radius`.
@@ -325,10 +446,30 @@ The simulation is controlled by a text file in `key: value` format. `#` starts a
 
 | Key | Type | Description | Default |
 |---|---|---|---|
-| `N` | integer | Lattice side (*N* × *N*) | 64 |
+| `mode` | string | `lattice` (sites of a periodic lattice) or `continuum` (real coordinates; needs `Lx`, `Ly`, `rho_O` and `kappa` or `chi`) | lattice |
+| `N` | integer | Lattice side of a square lattice (*N* × *N*) | 64 |
+| `Nx`, `Ny` | integer | Lattice width and height; 0 = `N` | 0 |
 | `density` | real | Occupation fraction, in (0, 1) | 0.4 |
-| `chi` | real | Stealthiness χ; > 0 derives *K* from it, 0 uses `K` | 0 |
-| `K` | real | Mask radius in units of 2π/*N*, 1 ≤ *K* ≤ *N*/2 − 1; ignored if `chi` > 0 | 4.0 |
+| `kappa` | real | Mask radius κ = *K a* / 2π (*a*: mean spacing of the occupied sites); > 0 sets *K*, and wins over `chi` and `K` | 0 |
+| `chi` | real | Stealthiness χ, lattice convention; > 0 derives *K* from it | 0 |
+| `K` | real | Mask radius in units of 2π/*N*, 1 ≤ *K* ≤ *N*/2 − 1; square lattices only; ignored if `kappa` or `chi` > 0 | 4.0 |
+| `min_distance` | real | Hard-core exclusion: no two occupied sites closer than this, in lattice spacings; 0 = none | 0 |
+| `lattice_constant` | real | Lattice spacing in grain diameters (obstacle file) | 1 |
+| `R` | real | Obstacle radius in grain diameters; implies an exclusion of 2*R*/`lattice_constant`; > 0 with `obs_file` | 0 |
+| `Lx`, `Ly`, `rho_O` | real | Physical box and obstacle density; if all > 0, `Nx`, `Ny`, `lattice_constant` and the occupation are derived from them and `density` | 0 |
+| `boundary` | string | Declared in the obstacle file: `periodic_x` or `walls_x` | periodic_x |
+| `obs_file` | string | Obstacle file (hyperGalton2D format, version 1); `auto` = recommended name; empty = none | (none) |
+| `arr_index` | integer | Realization index of the first file | 0 |
+| `realizations` | integer | Independent realizations with seeds `seed`, `seed` + 1, …; outputs get `_arrNNN` | 1 |
+| `minimizer` | string | Continuum: `lbfgs`, `anneal` (Monte Carlo) or `anneal+lbfgs` | lbfgs |
+| `init_file` | string | Continuum: start from this obstacle file (its box is used) | (random start) |
+| `mc_step` | real | Continuum Monte Carlo: initial displacement in *d*; 0 = 0.1 mean spacing | 0 |
+| `lbfgs_memory` | integer | Continuum: L-BFGS correction pairs | 10 |
+| `max_iterations` | integer | Continuum: L-BFGS iterations | 100000 |
+| `grad_tol` | real | Continuum: stop when the largest gradient component ≤ this; 0 = off | 0 |
+| `residual_tol` | real | Continuum: stop when ⟨*S*⟩<sub>mask</sub> ≤ this | 1e-20 |
+| `core_weight` | real | Continuum: weight of the hard-core term | 1 |
+| `sk_kmax` | real | Continuum: *S*(*k*) output up to this \|**k**\| (*d*⁻¹); 0 = 3*K* | 0 |
 | `weight_power` | real | p in the mode weights *w* ∝ \|**k**\|<sup>−p</sup> of the annealing energy, 0 ≤ p ≤ 8; 0 = unweighted (2 recommended) | 0 |
 | `T_initial` | real | Initial temperature; ≤ 0: automatic (a typical uphill swap from the random start is accepted with probability 1/2) | 10.0 |
 | `T_final` | real | Final temperature (stopping criterion) | 0.01 |
