@@ -232,7 +232,12 @@ de L-BFGS se cortaba si había un par justo en σ. El MC continuo conserva su n�
 - ρ̂ en paralelo sobre modos; ∇E sobre partículas. Tiempos hasta el *N* más grande de la campaña
   (*N* = (*L*ₓ/*a*)(*L*ᵧ/*a*), con *L*ₓ/*a* = 320).
 
-**F7 — Script de análisis.**
+**F7 — Script de análisis.** ✅ Hecha (2026-10-22): `scripts/analyze_obs.py` (y `test_hyper2D.py` le pasa los
+`.obs`). ρ̂ por producto de matrices de las tablas por eje; *S*(*k*) radial y por sectores; σ²(*R*) espectral
+exacta en el toro con cola de Parseval, y conteo directo (único método si *y* no es periódico); α; *g*(*r*);
+`--write-alpha` sin tocar el cuerpo. Continuo χ = 0,3: ⟨*S*⟩_mask = 4,9·10⁻²¹ igual en los tres sectores,
+α = 0,998, conteo directo dentro del 1,7 %. Control en red 160 × 40: ⟨*S*⟩ = 3,8·10⁻³, α = 0,985. Tests en
+`ctest` (`tests/test_analysis.py`).
 - `test_hyper2D.py` lee `.obs`; cajas rectangulares; `periodic_x`; *k* en *d*⁻¹.
 - σ²(*R*) espectral exacta con cola cerrada por Parseval; conteo directo como control; *g*(*r*);
   opción para escribir `alpha_numvar`.
@@ -273,8 +278,11 @@ al dar `R`). *a*_red = *a*√ρ.
 (≈ 0,6 ρ, tres veces más que con χ = 0,3); α = 0,95–0,99. El patrón mantiene por sí solo
 *d*_min = 0,58–0,67 *a*, así que la exclusión no actúa. Para ~0,004 con χ = 0,45 hace falta ρ ≈ 0,006.
 
-Pendiente: el umbral de `residual_S` aceptable para el control, y el costo de *S*(*k*) y de las tablas en
-redes de 10⁶–10⁷ sitios (la DFT de *S*(*k*) es O(*N*ₓ*N*ᵧ(*N*ₓ + *N*ᵧ)); pasar a FFT si hace falta).
+**Umbral aceptado (2026-10-22): `residual_S` ≤ 0,011** para el control en red. Con ρ = 0,02 cubre los tres χ
+de la campaña (0,0040 con χ = 0,3; 0,011 con χ = 0,45).
+
+Pendiente: el costo de *S*(*k*) y de las tablas en redes de 10⁶–10⁷ sitios (la DFT de *S*(*k*) es
+O(*N*ₓ*N*ᵧ(*N*ₓ + *N*ᵧ)); pasar a FFT si hace falta).
 
 ## Riesgos
 

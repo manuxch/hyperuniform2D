@@ -73,6 +73,9 @@ if(Python3_FOUND)
     add_test(NAME hyper2D_obs_end_to_end
              COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_obs.py
                      $<TARGET_FILE:hyper2D> ${CMAKE_CURRENT_SOURCE_DIR}/scripts/obs_tools.py)
+    add_test(NAME hyper2D_analysis
+             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_analysis.py
+                     $<TARGET_FILE:hyper2D> ${CMAKE_CURRENT_SOURCE_DIR}/scripts)
 endif()
 
 # ── Información al final de cmake ────────────────────────────────────────────

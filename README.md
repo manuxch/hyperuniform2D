@@ -189,7 +189,7 @@ The cost per proposal depends on the number of modes, which is fixed by κ and t
 
 At χ<sub>point</sub> = 0.45 (κ = 0.757, lattice χ 0.90) the residual is about three times larger: 0.0113 at ρ = 0.02 and 0.0064 at ρ = 0.01 (`min_distance` = 0.4 *a*, α = 0.95–0.99). There the pattern keeps by itself a minimum distance of 0.58–0.67 *a*, so the exclusion is not active.
 
-For a lattice control of the continuum patterns, use a fine lattice, ρ ≤ 0.02, with `R` (or `min_distance`) set: about 0.004 at χ<sub>point</sub> = 0.3, and ρ ≈ 0.006 for a similar residual at χ<sub>point</sub> = 0.45.
+For a lattice control of the continuum patterns, use a fine lattice, ρ ≤ 0.02, with `R` (or `min_distance`) set. The residual accepted for the hyperGalton2D campaign is 0.011, so ρ = 0.02 covers its three χ values (0.004 at χ<sub>point</sub> = 0.3, 0.011 at χ<sub>point</sub> = 0.45).
 
 Without exclusion, the closest pairs are at one lattice spacing: on a fine lattice a few pairs (1.6 % of the points at ρ = 0.02) sit on neighbouring sites. `min_distance` forbids that. Up to 0.5 *a* it does not change the residual.
 
@@ -346,7 +346,7 @@ With `weight_power: 2`, *S* stays below 6 × 10⁻²⁰ inside the mask in every
 
 ## Hyperuniformity analysis tool
 
-`scripts/test_hyper2D.py` reads a plain PGM (P2) image and analyses its occupied sites.
+`scripts/test_hyper2D.py` reads a plain PGM (P2) image, square or rectangular, and analyses its occupied sites. Given an obstacle file (`.obs`), it hands it to `scripts/analyze_obs.py` ([below](#analysing-obstacle-files)).
 
 1. **Number variance.** It computes σ<sub>*N*</sub>² of the count in a disk of radius *R* over all *N*² lattice centres, with periodic boundaries. The counts come from a periodic FFT convolution, so they are exact, with no sampling noise.
 2. **Exponent.** It fits the exponent α of σ<sub>*N*</sub>² ∼ *R*<sup>α</sup>, by default on 5 ≤ *R* ≤ *N*/4. Near *R* = *N*/2 the fixed total number of particles suppresses the variance artificially.
@@ -392,6 +392,24 @@ From left to right:
 1. **Number variance.** σ<sub>*N*</sub>² grows as *R*<sup>0.98</sup>, compared with the Poisson *R*² and the stealthy *R*.
 2. **Density variance.** σ<sub>ρ</sub>² decays as *R*<sup>−3.02</sup>.
 3. **Structure factor.** *S*(*k*) is essentially zero up to the mask radius *K* = 95.7 and jumps to the uncorrelated level beyond it.
+
+### Analysing obstacle files
+
+`scripts/analyze_obs.py` analyses an obstacle file, lattice or continuum, in physical units: lengths in grain diameters, wave vectors in *d*⁻¹.
+
+```bash
+python3 scripts/analyze_obs.py stealthy_rho1_Lx140_Ly35_arr000.obs --save analysis.png
+```
+
+1. **Structure factor.** ρ̂(**k**) on every wave vector **k** = 2π(*n*<sub>*x*</sub>/*L*<sub>*x*</sub>, *n*<sub>*y*</sub>/*L*<sub>*y*</sub>) up to `--kmax` (default 4*K*), as a matrix product of the axis phase tables. It reports the number of modes in the circle |**k**| ≤ *K* (it must equal `n_constrained_modes`), ⟨*S*⟩ and max *S* in the mask, and the same for three angular sectors: on a circular mask they agree.
+2. **Number variance, spectral.** For a pattern on the torus, as hyperuniform2D generates it, σ<sub>*N*</sub>²(*R*) = (*N*/*A*²) Σ<sub>**k**≠0</sub> *S*(**k**) *m̂*(*k*)², with *m̂* = 2π*R* *J*<sub>1</sub>(*kR*)/*k*, is exact for the pattern. The modes beyond `--kmax` are closed with Parseval, Σ<sub>**k**≠0</sub> *m̂*² = *A*π*R*² − (π*R*²)², taking *S* = 1 there.
+3. **Number variance, direct count.** Counts in `--samples` disks with random centres, as an independent check; it is the only estimate for files that are not periodic in *y* (`--periodic x`, or files from other generators).
+4. **Exponent and pair correlation.** α of σ<sub>*N*</sub>² ∼ *R*<sup>α</sup> on [`--rmin`, `--rmax`] (default [*a*, min(*L*<sub>*x*</sub>, *L*<sub>*y*</sub>)/4]), and *g*(*r*) up to `--gr-rmax` mean spacings.
+5. **`--write-alpha`** writes `alpha_numvar` into the header. The body, and therefore `sha256_body`, is not touched, and the file stays valid.
+
+For the continuum pattern of 4 900 points at χ = 0.3 (seed 11): the mask holds 2 939 modes, as declared, with ⟨*S*⟩ = 4.9 × 10⁻²¹ and the same value in the three sectors; α = 0.998, and the direct count agrees with the spectral variance within 1.7 %. For the lattice control of 160 × 40 *d* (occupation 0.02): ⟨*S*⟩ = 3.8 × 10⁻³ and α = 0.985.
+
+![Analysis of a continuum pattern: the points, the number variance, S(k) and g(r)](docs/analysis_continuum.png)
 
 ## What is a hyperuniform distribution?
 

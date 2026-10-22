@@ -27,6 +27,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Key `min_distance`.** Hard-core exclusion between occupied sites, in lattice spacings. The random start is a random sequential addition that respects it, and the annealing rejects the moves that would break it. The program prints the smallest distance between occupied sites. Default 0, no exclusion and identical results.
 - **Key `kappa`.** κ = K a / 2π, with a the mean spacing of the occupied sites, sets the mask directly (K = κ √M). It wins over `chi` and `K`. It is the variable that pairs patterns from different generators and box shapes. `K` is accepted only on square lattices.
 - **Output.** The program prints κ and χ in both conventions: `binary_lattice` M_K/(n_min − 1), the value used so far, and `point_pattern` M_K/[2(M − 1)].
+- **`scripts/analyze_obs.py`**: analysis of obstacle files, lattice or continuum, in grain diameters.
+  - ρ̂ on every wave vector up to k_max as a matrix product of the axis phase tables; S(k) radial and in the mask by angular sector; check of `n_constrained_modes`.
+  - Spectral number variance, exact on the torus, σ² = (N/A²) Σ S(k) m̂(k)², with the modes beyond k_max closed by Parseval; direct count as a check (and for patterns not periodic in y); exponent α; g(r).
+  - `--write-alpha` adds `alpha_numvar` to the header without touching the body. `test_hyper2D.py` hands `.obs` files to it.
+  - Tests (`tests/test_analysis.py`, in `ctest`): Poisson value, Parseval tail, a stealthy pattern of hyper2D, `--write-alpha`.
 - **Analysis script.** Rectangular PGM images; |k| in units of 2π/√(N_x N_y). Square images give the same numbers as before.
 - **Continuum mode** (`mode: continuum`): point patterns with real coordinates in a periodic Lx × Ly box, N = round(rho_O Lx Ly).
   - Minimization with L-BFGS and a strong-Wolfe line search (implemented in the program; same iteration counts as SciPy's L-BFGS-B on the test problems) of the weighted residual plus the hard-core term; stops on the unweighted residual (`residual_tol`, default 1e-20).

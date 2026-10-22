@@ -10,7 +10,8 @@ inverted afterwards (e.g. magick -negate) are still read correctly; without that
   2. the radially averaged structure factor S(k) = |rho_hat(k)|^2 / M, with |k| the norm of the physical
      wave vector 2 pi (kx/Nx, ky/Ny), in units of 2 pi / sqrt(Nx Ny) (2 pi / N on a square lattice).
 
-Square and rectangular (Nx x Ny) lattices are supported.
+Square and rectangular (Nx x Ny) lattices are supported. An obstacle file (.obs, format of hyperGalton2D) is
+handed to analyze_obs.py, which works in physical units (grain diameters) for lattice and continuum patterns.
 
 Poisson-like (uncorrelated) patterns: sigma_N^2 ~ R^2.  Hyperuniform: slower than R^2 (stealthy: ~ R).
 The exponent is fitted on [--rmin, --rmax]; the default rmax = min(Nx, Ny)/4 keeps the disk well below the box, where
@@ -104,7 +105,24 @@ def structure_factor(occ):
     return ksum[ok] / cnt[ok], ssum[ok] / cnt[ok]
 
 
+def is_obs(filename):
+    """True for an obstacle file: extension .obs, or a first line '# format: ...'."""
+    if filename.endswith(".obs"):
+        return True
+    try:
+        with open(filename, "rb") as f:
+            return f.readline().startswith(b"# format:")
+    except OSError:
+        return False
+
+
 def main():
+    if len(sys.argv) > 1 and is_obs(sys.argv[1]):
+        import os
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import analyze_obs
+        analyze_obs.main(sys.argv[1:])
+        return
     parser = argparse.ArgumentParser(description="Analyzes hyperuniformity: number variance exponent and S(k).")
     parser.add_argument("filename", help="Path to the PGM file in text mode (P2)")
     parser.add_argument("--rmin", type=float, default=5.0, help="smallest radius of the fit (default 5)")
