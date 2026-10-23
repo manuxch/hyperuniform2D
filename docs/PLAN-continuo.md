@@ -1,6 +1,6 @@
 # Plan: mapas rectangulares, formato `.obs` y modo off-lattice (continuo)
 
-Estado: en ejecución desde 2026-10-22. Versión objetivo: 2.2.0 (cambios aditivos; el modo red cuadrado
+Estado: completado el 2026-10-22 (fases F0–F8). Versión objetivo: 2.2.0 (cambios aditivos; el modo red cuadrado
 debe seguir produciendo el mismo PGM bit a bit con la misma semilla).
 
 Referencias del proyecto consumidor (hyperGalton2D):
@@ -242,7 +242,11 @@ exacta en el toro con cola de Parseval, y conteo directo (único método si *y* 
 - σ²(*R*) espectral exacta con cola cerrada por Parseval; conteo directo como control; *g*(*r*);
   opción para escribir `alpha_numvar`.
 
-**F8 — Documentación y versión.**
+**F8 — Documentación y versión.** ✅ Hecha (2026-10-22): versión 2.2.0 (CMake, CHANGELOG con la sección
+[2.2.0] reorganizada), `examples/continuum.in` y `examples/lattice_control.in` apareados por κ, README
+revisado (versión, requisitos con SciPy, tests, inicio rápido, tiempos del MC con los núcleos de F6,
+referencias de Uche et al. 2004 y Nocedal y Wright), `hyper2D --help` con los modos. Remedido el MC como
+primera etapa con los núcleos nuevos: no conviene (4900 puntos: 5,1–9,7 s contra 1,8–3,9 s de L-BFGS solo).
 - README, ejemplos de parámetros (uno por modo, apareados por κ), figuras, CHANGELOG, 2.2.0.
 
 ## Validación física

@@ -4,7 +4,12 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.2.0] — 2026-10-22
+
+Feature release. Existing parameter files run unchanged, and a square lattice with the same seed gives the
+same pattern, `sk.dat` and `annealing.dat` as 2.1.0, bit for bit; only the version in the PGM header changes.
+The new features produce the obstacle files of hyperGalton2D: rectangular boxes, a continuum mode and the
+file format itself.
 
 ### Added
 
@@ -12,49 +17,45 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   - The mask is a circle in physical k, (k_x/N_x)² + (k_y/N_y)² ≤ (K/2π)², i.e. an ellipse in the integer indices. A circle in the indices would give a directionally hyperuniform pattern.
   - Modes and shells are selected with the exact integer key q = k_x²N_y² + k_y²N_x², so rounding never splits a shell.
   - The phase tables use L = lcm(N_x, N_y), at most 2²⁴; the circle must fit below the Nyquist limit of both axes.
-  - *K* is expressed in units of 2π/√(N_x N_y), which is 2π/N on a square lattice.
-  - The PGM is N_x wide and N_y high. On a rectangular lattice its header also records N_x, N_y, κ and χ in both conventions.
+  - K is expressed in units of 2π/√(N_x N_y), which is 2π/N on a square lattice.
+  - The PGM is N_x wide and N_y high; on a rectangular lattice its header also records N_x, N_y, κ and χ in both conventions.
+- **Key `kappa`.** κ = K a / 2π, with a the mean spacing of the occupied sites (or of the points), sets the mask directly. It wins over `chi` and `K`, and it is the variable that pairs patterns of different generators and box shapes. `K` is accepted only on square lattices.
+- **Both χ conventions** in the output: `binary_lattice`, M_K/(n_min − 1), the lattice value used so far, and `point_pattern`, M_K/[2(N − 1)].
+- **Key `min_distance`.** Hard-core exclusion between occupied sites, in lattice spacings: the random start is a random sequential addition that respects it, and the annealing rejects the moves that would break it. The program prints the smallest distance between occupied sites.
 - **Obstacle files for hyperGalton2D** (format version 1), keys `obs_file`, `lattice_constant`, `R`, `boundary`, `Lx`, `Ly`, `rho_O`, `arr_index` and `realizations`.
-  - Every required key and the `class: stealthy` diagnostics: `K` in d⁻¹ (halfway between the last shell in the mask and the next), `n_constrained_modes`, `chi_convention: binary_lattice`, `chi`, `kappa`, `residual_S`, `lattice_constant`.
-  - `n_obstacles`, `rho_O`, `d_min`, `kappa` and `sha256_body` are computed from the values as written (shortest round-trip representation); body ordered by y, then x, reproducible byte for byte.
-  - `R` implies a hard-core exclusion of 2R/a, so d_min ≥ 2R.
+  - Every required key and the `class: stealthy` diagnostics: `K` in d⁻¹ (halfway between the last shell of the mask and the next), `n_constrained_modes`, `chi_convention`, `chi`, `kappa`, `residual_S`, `lattice_constant`.
+  - `n_obstacles`, `rho_O`, `d_min`, `kappa` and `sha256_body` are computed from the values as written (shortest round-trip representation); the body is ordered by y, then x, and reproducible byte for byte.
+  - `R` implies a hard core of 2R, so d_min ≥ 2R.
   - With `Lx`, `Ly`, `rho_O` the lattice is derived from the occupation fraction, keeping Lx exact.
   - `obs_file: auto` uses the recommended file name; `realizations` writes a series with consecutive seeds, and the other outputs get `_arrNNN`.
   - A `.sk` companion with S(k), k in d⁻¹.
   - SHA-256 implemented in the program (no new dependency), tested against the NIST vectors.
-- **`scripts/obs_tools.py`.** `validate` (the eight reader rules, the file conventions, the stealthy keys and the mask they declare) and `topgm` (one pixel per lattice site, or disks of radius R).
-- **End-to-end test** of the obstacle files (`tests/test_obs.py`, run by `ctest` when Python is found).
-- **Key `min_distance`.** Hard-core exclusion between occupied sites, in lattice spacings. The random start is a random sequential addition that respects it, and the annealing rejects the moves that would break it. The program prints the smallest distance between occupied sites. Default 0, no exclusion and identical results.
-- **Key `kappa`.** κ = K a / 2π, with a the mean spacing of the occupied sites, sets the mask directly (K = κ √M). It wins over `chi` and `K`. It is the variable that pairs patterns from different generators and box shapes. `K` is accepted only on square lattices.
-- **Output.** The program prints κ and χ in both conventions: `binary_lattice` M_K/(n_min − 1), the value used so far, and `point_pattern` M_K/[2(M − 1)].
-- **`scripts/analyze_obs.py`**: analysis of obstacle files, lattice or continuum, in grain diameters.
-  - ρ̂ on every wave vector up to k_max as a matrix product of the axis phase tables; S(k) radial and in the mask by angular sector; check of `n_constrained_modes`.
-  - Spectral number variance, exact on the torus, σ² = (N/A²) Σ S(k) m̂(k)², with the modes beyond k_max closed by Parseval; direct count as a check (and for patterns not periodic in y); exponent α; g(r).
-  - `--write-alpha` adds `alpha_numvar` to the header without touching the body. `test_hyper2D.py` hands `.obs` files to it.
-  - Tests (`tests/test_analysis.py`, in `ctest`): Poisson value, Parseval tail, a stealthy pattern of hyper2D, `--write-alpha`.
-- **Analysis script.** Rectangular PGM images; |k| in units of 2π/√(N_x N_y). Square images give the same numbers as before.
+- **Fine-lattice control.** At the K of a continuum pattern, the lattice residual is about 0.2 ρ (χ_point = 0.3) and 0.6 ρ (χ_point = 0.45), set by the occupation ρ rather than by the schedule. With ρ = 0.02 it stays below 0.011, the residual accepted for the hyperGalton2D campaign. `min_distance` up to 0.5 a does not change it.
 - **Continuum mode** (`mode: continuum`): point patterns with real coordinates in a periodic Lx × Ly box, N = round(rho_O Lx Ly).
-  - Minimization with L-BFGS and a strong-Wolfe line search (implemented in the program; same iteration counts as SciPy's L-BFGS-B on the test problems) of the weighted residual plus the hard-core term; stops on the unweighted residual (`residual_tol`, default 1e-20).
-  - Keys `minimizer`, `lbfgs_memory`, `max_iterations`, `grad_tol`, `residual_tol`, `core_weight`, `sk_kmax`; `kappa` or `chi` (point-pattern convention) set the mask; `R` sets the hard core.
-  - Threads split ρ̂ by modes and the gradient by points, with results independent of the thread count.
+  - Circular mask in physical k, set by `kappa` or by a point-pattern `chi` (K midway to the next shell).
+  - L-BFGS with a strong-Wolfe line search, implemented in the program (same iteration counts as SciPy's L-BFGS-B on the test problems), on the weighted residual plus a hard-core term; it stops on the unweighted residual (`residual_tol`, default 1e-20).
+  - Phases by recurrence along each axis, with no trigonometry per mode. The mask is stored as runs of equal n_x, so the inner loops are contiguous real arrays; the gradient is factorized along each run and computed for blocks of 32 points; ρ̂ is summed in 32 fixed groups of points. One evaluation of the energy and its gradient costs 0.7–0.95 ns per point and mode with one thread and scales to 4.5× on 6 cores. The results are identical for any thread count. Standard C++20 and `std::thread` only.
+  - `init_file` starts from an obstacle file, lattice or continuum, whose box is used; the reader checks the format, the record count and `sha256_body`.
+  - `minimizer: anneal` and `anneal+lbfgs`: single-point Monte Carlo with incremental ρ̂, adaptive step (`mc_step`), the lattice schedule keys and the hard core as a constraint.
+  - Keys `minimizer`, `init_file`, `mc_step`, `lbfgs_memory`, `max_iterations`, `grad_tol`, `residual_tol`, `core_weight`, `sk_kmax`.
   - Outputs: minimization log, S(k), and the obstacle file (`chi_convention: point_pattern`) with its `.sk`.
-  - With 4 900 points, χ = 0.3 and `weight_power: 2`: residual 3.5e-21 in 15 s with 4 threads, α = 0.99.
-- **Continuum performance.** The mask is stored as runs of equal n_x; ρ̂ and the gradient loop over contiguous real arrays, the gradient is factorized along each run and computed for blocks of 32 points, and ρ̂ is summed in 32 fixed groups of points. One evaluation costs 0.7–0.95 ns per point and mode with one thread (2.9 before) and scales to 4.5× on 6 cores; results are identical for any thread count. Standard C++ only.
-- **Continuum: `init_file` and Monte Carlo.**
-  - `init_file` starts from an obstacle file (lattice or continuum), whose box is used; the reader checks the format, the record count and `sha256_body` (`read_obs`).
-  - `minimizer: anneal` and `anneal+lbfgs`: single-point Monte Carlo with incremental ρ̂, adaptive step (`mc_step`), the lattice schedule keys, and the hard core as a constraint.
-- **Continuum core.** Point patterns in a periodic Lx × Ly box: circular mask in physical k, shell choice for a point-pattern χ (K midway to the next shell) or for κ, ρ̂ with axis phases by recurrence (exact every 32 steps), energy and its gradient, a hard-core term with a cell list, random sequential addition, and direct references for the tests.
-- **Key `mode`.** Only `lattice` (the default) is accepted for now; `continuum` is planned (see `docs/PLAN-continuo.md`).
+  - 4 900 points in 140 × 35, χ_point = 0.3, `weight_power: 2`, 6 threads: 1–4 s to a residual below 5e-21, α ≈ 1.
+- **`scripts/obs_tools.py`.** `validate` (the eight reader rules, the file conventions, the stealthy keys and the mask they declare) and `topgm` (one pixel per lattice site, identical to the PGM of hyper2D, or disks of radius R).
+- **`scripts/analyze_obs.py`.** Analysis of obstacle files in grain diameters: S(k) radial and by angular sector, the check of `n_constrained_modes`, the spectral number variance (exact on the torus, with the modes beyond k_max closed by Parseval), a direct count, α and g(r). `--write-alpha` adds `alpha_numvar` to the header without touching the body. `test_hyper2D.py` hands `.obs` files to it.
+- **Examples.** `examples/continuum.in` and `examples/lattice_control.in`, paired by κ.
+- **Tests.** Rectangular masks, the exclusion, SHA-256, the obstacle writer and reader, L-BFGS, the continuum kernels and threads, the Monte Carlo; end-to-end tests of the obstacle files (`tests/test_obs.py`) and of the analysis (`tests/test_analysis.py`), run by `ctest` when Python is found.
+- **`docs/PLAN-continuo.md`**: the development plan of this version and its measurements.
 
 ### Changed
 
-- **Thread pool.** It runs any range function (`parallel_reduce`), no longer only the lattice ΔE. Results are bit-for-bit identical to 2.1.0 with the same seed, with 1 and 4 threads.
+- **Thread pool.** It runs any range function (`parallel_reduce`), no longer only the lattice ΔE.
+- **Analysis script.** Rectangular PGM images; |k| in units of 2π/√(N_x N_y). Square images give the same output as before.
+- **`hyper2D --help`** lists the modes, the examples and the tools.
 
 ### Fixed
 
 - **Definition of χ in the README.** The displayed equation was M_K/[2(n − 1)], but the program has always computed M_K/(n − 1) (the README text said so too). The equation is corrected; results do not change. This lattice χ is about twice the point-pattern χ of the continuum literature at the same K.
 - **χ warning.** It used to say that χ > 1/2 means no disordered ground states, which holds for the point-pattern χ. It now warns for χ_point > 1/2, and separately when the lattice χ > 1/2, where the lattice residual becomes large.
-
 - **README equations invisible in some setups.** The display equations used a `<picture>` with light and dark variants chosen by `prefers-color-scheme`. That follows the operating system, not the GitHub theme, so a dark system with a light GitHub page showed light text on white. They are now a single SVG each, dark text on a white background, readable with any theme.
 - **README map figures.** The two map figures are shown at half size and side by side.
 
@@ -178,7 +179,8 @@ First release.
 - Plain PGM (P2) output, annealing monitor and S(k) along k_y = 0.
 - Analysis script for the number-variance exponent.
 
-[Unreleased]: https://github.com/manuxch/hyperuniform2D/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/manuxch/hyperuniform2D/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/manuxch/hyperuniform2D/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/manuxch/hyperuniform2D/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/manuxch/hyperuniform2D/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/manuxch/hyperuniform2D/releases/tag/v1.0.0

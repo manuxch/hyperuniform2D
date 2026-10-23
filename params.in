@@ -15,7 +15,8 @@ density: 0.3
 
 # --- Mask (constrained wave vectors) --------------------------------------------------------
 # Stealthiness chi = (constrained half-plane modes) / (n - 1), n = min(occupied, empty).
-# chi > 0 derives the mask radius K from it (chi < 0.5 for disordered stealthy patterns).
+# chi > 0 derives the mask radius K from it. This lattice chi is about twice the point-pattern chi
+# of the continuum at the same K; kappa (see examples/) pairs patterns of different generators.
 chi: 0.3
 # Mask radius in units of 2pi/N, used instead of chi when chi = 0 (uncomment and set chi: 0)
 # K: 4.0

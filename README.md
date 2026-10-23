@@ -1,12 +1,12 @@
 # Hyperuniform2D
 
-**Version 2.1.0** — see [CHANGELOG.md](CHANGELOG.md).
+**Version 2.2.0** — see [CHANGELOG.md](CHANGELOG.md).
 
-Generator for hyperuniform points in a 2D square grid
+Generator of stealthy hyperuniform patterns in two dimensions, on a lattice or in the continuum
 
 This repository contains a C++20 program that generates **stealthy hyperuniform binary patterns** on a periodic *N*<sub>*x*</sub> × *N*<sub>*y*</sub> lattice (square or rectangular). The patterns are obtained by **Metropolis simulated annealing** of an energy built from the structure factor *S*(**k**). A **continuum mode** generates point patterns with real coordinates by L-BFGS minimization of the same energy, and both modes can write the obstacle files of hyperGalton2D.
 
-The output is a configuration of occupied and empty sites that suppresses large-scale density fluctuations. That is the defining property of disordered systems with hidden order, relevant in photonics, granular materials and biology.
+The output is a configuration (occupied and empty sites, or points) that suppresses large-scale density fluctuations. That is the defining property of disordered systems with hidden order, relevant in photonics, granular materials and biology.
 
 <p align="center">
   <img src="hyperuniform.png" width="210" alt="Stealthy hyperuniform pattern, 400 x 400, density 0.3">&nbsp;&nbsp;<img src="hyperuniform_zoom.png" width="210" alt="Top-left 100 x 100 corner of the same pattern">
@@ -17,7 +17,7 @@ The output is a configuration of occupied and empty sites that suppresses large-
 
 - A **C++20** compiler (e.g. GCC 11+, Clang 14+, MSVC 19.29+)
 - **CMake** 3.20 or newer
-- For the analysis script: Python 3 with NumPy and Matplotlib (LaTeX is used for the labels if it is installed)
+- For the scripts: Python 3 with NumPy, SciPy and Matplotlib (LaTeX is used for the labels of `test_hyper2D.py` if it is installed). `ctest` runs the Python tests when Python is found.
 
 ## Compilation
 
@@ -28,19 +28,19 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 ```
 
-Unit tests:
+Tests:
 
 ```bash
 ctest --test-dir build --output-on-failure
 ```
 
-They cover:
-- the energy against a direct trigonometric evaluation;
-- incremental updates and weighted energies;
-- the thread pool and threaded determinism;
-- χ selection;
-- the Parseval sum rule of *S*(*k*);
-- parameter parsing.
+- **Unit tests** (`test_hyper2D`):
+  - lattice: the energy against a direct trigonometric evaluation, incremental updates and weighted energies, χ selection, the Parseval sum rule of *S*(*k*), circular masks on rectangular lattices, the hard-core exclusion;
+  - obstacle files: SHA-256 against the NIST vectors, the writer and the reader;
+  - continuum: axis phases, energy and gradients against direct evaluations and finite differences, L-BFGS, the Monte Carlo;
+  - the thread pool, and identical results with 1 and 4 threads;
+  - parameter parsing.
+- **End-to-end tests** in Python: obstacle files written by hyper2D, validated and converted back to PGM (`tests/test_obs.py`), and the analysis of obstacle files (`tests/test_analysis.py`).
 
 On a cluster, `-march=native` optimizes for the CPU of the machine that compiles. Either compile on a compute node or configure with `-DHYPER2D_NATIVE=OFF`.
 
@@ -53,7 +53,18 @@ The repository's `params.in` is a complete, commented example: a 400 × 400 latt
 python3 scripts/test_hyper2D.py hyperuniform.pgm   # hyperuniformity check
 ```
 
-The program takes one optional argument, the parameter file (default `params.in`). `hyper2D --version` prints the version.
+The program takes one optional argument, the parameter file (default `params.in`). `hyper2D --version` prints the version, and `hyper2D --help` a summary.
+
+For the obstacle files of hyperGalton2D, `examples/` holds two parameter files paired by κ, with the same box, obstacle density and radius: a continuum pattern and its fine-lattice control. Both have 4 900 obstacles of radius 0.2 at density 0.2 in a 320 × 76.5625 box, with χ<sub>point</sub> = 0.3. Measured on a Ryzen 5 5600X: the continuum file takes 5 s (residual 3 × 10⁻²¹), the lattice control about a minute (residual 0.0039), and both give α = 0.999. The lattice rounds *L*<sub>*y*</sub> to a multiple of its spacing (76.52) and has 4 897 obstacles.
+
+```bash
+./build/hyper2D examples/continuum.in                                        # a few seconds
+python3 scripts/obs_tools.py validate stealthy_rho0.2_Lx320_Ly76.5625_arr000.obs
+python3 scripts/analyze_obs.py stealthy_rho0.2_Lx320_Ly76.5625_arr000.obs
+./build/hyper2D examples/lattice_control.in                                  # about a minute
+```
+
+See [Continuum mode](#continuum-mode), [Obstacle files](#obstacle-files-for-hypergalton2d) and [Analysing obstacle files](#analysing-obstacle-files).
 
 The run makes about 14 million swap proposals and takes about 3 minutes on a Ryzen 5 5600X with 4 threads. The end of its output reads:
 
@@ -94,7 +105,8 @@ density: 0.3
 
 # --- Mask (constrained wave vectors) --------------------------------------------------------
 # Stealthiness chi = (constrained half-plane modes) / (n - 1), n = min(occupied, empty).
-# chi > 0 derives the mask radius K from it (chi < 0.5 for disordered stealthy patterns).
+# chi > 0 derives the mask radius K from it. This lattice chi is about twice the point-pattern chi
+# of the continuum at the same K; kappa (see examples/) pairs patterns of different generators.
 chi: 0.3
 # Mask radius in units of 2pi/N, used instead of chi when chi = 0 (uncomment and set chi: 0)
 # K: 4.0
@@ -224,6 +236,8 @@ The *N* = 120 rows cover two seeds. `weight_power: 2` is recommended. With p = 3
 
 ## Multithreading
 
+This section is about the lattice; for the continuum see [Continuum mode](#continuum-mode). All the threading is standard C++ (`std::thread`, `std::atomic`).
+
 A thread pool splits the modes of each swap proposal among threads. The calling thread does one share, and the pool synchronizes with spinning barriers. A proposal lasts only microseconds, so the futex wake-up of `std::barrier` (tens of µs) cost more than the work it parallelized.
 
 - `num_threads: 0` uses min(4, CPUs this process may run on). The CPU count comes from the affinity mask, i.e. the Slurm allocation, not every core of the node.
@@ -247,7 +261,7 @@ The file names are set in the parameter file.
 1. **`hyperuniform.pgm`**: the final configuration as a plain-text PGM image (P2), with 1 = occupied and 0 = empty, *N*<sub>*x*</sub> pixels wide and *N*<sub>*y*</sub> high.
    - Comment lines after the magic number record the version, *N*, density, *K*, χ (achieved and target), seed, energies, residuals and `weight_power`. On a rectangular lattice they also record *N*<sub>*x*</sub>, *N*<sub>*y*</sub>, κ and χ in both conventions. PGM readers skip them.
    - Image viewers show the occupied sites in white. To draw them in black, invert the image: `magick input.pgm -negate -compress none output.pgm`. The analysis script still recognises the occupied sites of an inverted file, from the count recorded in the header.
-2. **`annealing.dat`**: one line per temperature level, with temperature `T`, energy (`E`, or `E_w` with weights), cumulative acceptance rate `acc/rate` and the acceptance rate of that level `acc/level`. Every proposal is a genuine occupied ↔ empty swap. Use it to tune the cooling schedule.
+2. **`annealing.dat`**: in mode `continuum`, the minimization log (see [Continuum mode](#continuum-mode)). On the lattice, one line per temperature level, with temperature `T`, energy (`E`, or `E_w` with weights), cumulative acceptance rate `acc/rate` and the acceptance rate of that level `acc/level`. Every proposal is a genuine occupied ↔ empty swap. Use it to tune the cooling schedule.
 3. **`sk.dat`**: radially averaged structure factor *S*(*k*) = |ρ̂(**k**)|² / *M* over the whole Brillouin zone (all nonzero **k**, bins of width 1 in units of 2π/√(*N*<sub>*x*</sub>*N*<sub>*y*</sub>), i.e. 2π/*N* on a square lattice).
    - Columns: mean |*k*| of the bin, *S*(*k*) and number of modes.
    - For an uncorrelated lattice gas, *S* = 1 − ρ.
@@ -270,7 +284,7 @@ With `obs_file`, the program also writes the pattern in the obstacle file format
 - **File name.** `obs_file: auto` uses the recommended name `stealthy_rho<ρ>_Lx<Lx>_Ly<Ly>_arr<NNN>.obs`. `arr_index` and `realizations` number a series with consecutive seeds.
 - **Companion.** `<name>.sk` has the radially averaged *S*(*k*), *k* in *d*⁻¹, with the `sha256_body` of its `.obs`.
 
-A lattice control at χ<sub>point</sub> = 0.3 for a box of 160 × 40 *d* at ρ<sub>O</sub> = 0.2 (see [Residual on the lattice](#residual-on-the-lattice) for the occupation):
+A lattice control at χ<sub>point</sub> = 0.3 for a box of 160 × 40 *d* at ρ<sub>O</sub> = 0.2 (see [Residual on the lattice](#residual-on-the-lattice) for the occupation; `examples/lattice_control.in` is a complete file):
 
 ```
 Lx: 160
@@ -307,18 +321,19 @@ With `mode: continuum` the program generates point patterns with real coordinate
 - **Phases.** exp(−*i***k**·**r**) is the product of two axis factors obtained by recurrence (exact every 32 steps), with no trigonometry per mode. The mask is stored as runs of equal *n*<sub>*x*</sub> and consecutive *n*<sub>*y*</sub>, so the inner loops are contiguous real arrays that the compiler vectorizes; the gradient is factorized along each run and computed for blocks of 32 points with the point as the inner loop. Everything is standard C++20 (`std::thread` for the threads), with no compiler-specific directives.
 - **Threads.** ρ̂ is computed in 32 fixed groups of points, each with its own partial sums added in order, and the gradient is split by points. The result is the same, bit for bit, for any thread count. Use as many threads as physical cores (`num_threads`); hardware threads sharing a core add little.
 - **Initial configuration.** `init_file` starts from an obstacle file (lattice or continuum; its `sha256_body` is checked), whose box is used; `Lx`, `Ly`, `rho_O`, if given, must agree with it. For example, a pattern can be restarted at a larger κ, or a lattice control can be relaxed into the continuum.
-- **Monte Carlo.** `minimizer: anneal` replaces L-BFGS by simulated annealing with single-point moves, and `anneal+lbfgs` runs L-BFGS after it. A random point moves by a uniform displacement in [−*s*, *s*]², with *s* = `mc_step` (0: 0.1 *a*) adapted after each level towards an acceptance of 0.3–0.5. ρ̂ is updated incrementally and recomputed every `resync_interval` accepted moves. The hard core is a constraint: moves that create or deepen an overlap are rejected. The schedule keys are those of the lattice (`T_initial`, `T_final`, `cooling_rate`, `steps_per_temp`, `quench_steps`). The Monte Carlo alone does not reach *E* = 0: with 400 points it ends at a residual of 7 × 10⁻⁵ in 0.3 s. As a first stage it cut L-BFGS from 274 to 46 iterations with 400 points, but with 4 900 points (χ = 0.3, `weight_power: 2`) `anneal+lbfgs` took 45 s against 15 s for `lbfgs` alone, so `lbfgs` stays the default.
+- **Monte Carlo.** `minimizer: anneal` replaces L-BFGS by simulated annealing with single-point moves, and `anneal+lbfgs` runs L-BFGS after it. A random point moves by a uniform displacement in [−*s*, *s*]², with *s* = `mc_step` (0: 0.1 *a*) adapted after each level towards an acceptance of 0.3–0.5. ρ̂ is updated incrementally and recomputed every `resync_interval` accepted moves. The hard core is a constraint: moves that create or deepen an overlap are rejected. The schedule keys are those of the lattice (`T_initial`, `T_final`, `cooling_rate`, `steps_per_temp`, `quench_steps`). The Monte Carlo alone does not reach *E* = 0: with 400 points it ends at a residual of about 10⁻⁵ in 0.3 s. As a first stage it does not pay: with 4 900 points (χ = 0.3, `weight_power: 2`, 6 threads, seeds 11 and 12) `anneal+lbfgs` took 5.1–9.7 s against 1.8–3.9 s for `lbfgs` alone, and with 400 points L-BFGS still needed 49 iterations after it, against 56 without it. `lbfgs` is the default.
 - **Outputs.** The minimization log (`annealing_file`: iteration, objective, largest gradient component), *S*(*k*) up to `sk_kmax` (default 3*K*) in `sk_file`, and, with `obs_file`, the obstacle file (`mode: continuum`, `chi_convention: point_pattern`) and its `.sk`. Coordinates are folded into the box, and the residual and *d*<sub>min</sub> are recomputed from the written values. `scripts/obs_tools.py topgm` draws the pattern.
+
+The essential keys (the full, commented file is `examples/continuum.in`):
 
 ```
 mode: continuum
-Lx: 140
-Ly: 35
-rho_O: 1
+Lx: 320
+Ly: 76.5625
+rho_O: 0.2
 kappa: 0.618
-R: 0.1
+R: 0.2
 weight_power: 2
-num_threads: 4
 obs_file: auto
 ```
 
@@ -398,7 +413,7 @@ From left to right:
 `scripts/analyze_obs.py` analyses an obstacle file, lattice or continuum, in physical units: lengths in grain diameters, wave vectors in *d*⁻¹.
 
 ```bash
-python3 scripts/analyze_obs.py stealthy_rho1_Lx140_Ly35_arr000.obs --save analysis.png
+python3 scripts/analyze_obs.py stealthy_rho0.2_Lx320_Ly76.5625_arr000.obs --save analysis.png
 ```
 
 1. **Structure factor.** ρ̂(**k**) on every wave vector **k** = 2π(*n*<sub>*x*</sub>/*L*<sub>*x*</sub>, *n*<sub>*y*</sub>/*L*<sub>*y*</sub>) up to `--kmax` (default 4*K*), as a matrix product of the axis phase tables. It reports the number of modes in the circle |**k**| ≤ *K* (it must equal `n_constrained_modes`), ⟨*S*⟩ and max *S* in the mask, and the same for three angular sectors: on a circular mask they agree.
@@ -454,6 +469,8 @@ A configuration with *E* = 0 is perfectly stealthy within the mask. The search s
 Internally only the half plane of **k** is stored, because ρ̂(−**k**) = ρ̂(**k**)\*. The energy above counts both members of each pair: *E* = 2 Σ<sub>half</sub> |ρ̂|².
 
 ## Algorithm
+
+This is the lattice algorithm; the continuum one is described in [Continuum mode](#continuum-mode).
 
 1. **Initialization**: *M* = round(ρ *N*<sub>*x*</sub>*N*<sub>*y*</sub>) particles are placed at random.
 2. **Mask construction**:
@@ -516,11 +533,13 @@ The simulation is controlled by a text file in `key: value` format. `#` starts a
 | `annealing_file` | string | Annealing monitor | annealing.dat |
 | `sk_file` | string | Radially averaged *S*(*k*) | sk.dat |
 
-The defaults are those of a program run without a parameter file. The example `params.in` sets its own values.
+The defaults are those of a program run without a parameter file. The examples (`params.in`, `examples/*.in`) set their own values. In mode `continuum` the lattice keys (`N`, `Nx`, `Ny`, `density`, `K`, `local_*`, `parallel_min_modes`, `output_file`) are not used, and the schedule keys only with `minimizer: anneal` or `anneal+lbfgs`.
 
 ## Version history
 
-Current version: **2.1.0** (`hyper2D --version`). See [CHANGELOG.md](CHANGELOG.md). Version 2.0.0 changed several outputs and the meaning of `steps_per_temp` with respect to 1.0.0.
+Current version: **2.2.0** (`hyper2D --version`). See [CHANGELOG.md](CHANGELOG.md).
+- **2.2.0** adds rectangular lattices, the continuum mode, the obstacle files of hyperGalton2D and their tools. Existing parameter files run unchanged; a square lattice gives the same pattern as 2.1.0 with the same seed.
+- **2.0.0** changed several outputs and the meaning of `steps_per_temp` with respect to 1.0.0.
 
 ## License
 
@@ -531,5 +550,7 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 - Torquato, S., & Stillinger, F. H. (2003). Local density fluctuations, hyperuniformity, and order metrics. *Physical Review E*, 68(4), 041113. [https://doi.org/10.1103/PhysRevE.68.041113](https://doi.org/10.1103/PhysRevE.68.041113)
 - Batten, R. D., Stillinger, F. H., & Torquato, S. (2008). Classical disordered ground states: Super-ideal gases and stealth and equi-luminous materials. *Journal of Applied Physics*, 104(3), 033504. [https://doi.org/10.1063/1.2961314](https://doi.org/10.1063/1.2961314)
 - Zachary, C. E., & Torquato, S. (2009). Hyperuniformity in point patterns and two-phase random heterogeneous media. *Journal of Statistical Mechanics: Theory and Experiment*, P12015. [https://doi.org/10.1088/1742-5468/2009/12/P12015](https://doi.org/10.1088/1742-5468/2009/12/P12015)
+- Uche, O. U., Stillinger, F. H., & Torquato, S. (2004). Constraints on collective density variables: Two dimensions. *Physical Review E*, 70(4), 046122. [https://doi.org/10.1103/PhysRevE.70.046122](https://doi.org/10.1103/PhysRevE.70.046122)
 - Zhang, G., Stillinger, F. H., & Torquato, S. (2015). Ground states of stealthy hyperuniform potentials: I. Entropically favored configurations. *Physical Review E*, 92(2), 022119. [https://doi.org/10.1103/PhysRevE.92.022119](https://doi.org/10.1103/PhysRevE.92.022119)
+- Nocedal, J., & Wright, S. J. (2006). *Numerical Optimization* (2nd ed.). Springer. [https://doi.org/10.1007/978-0-387-40065-5](https://doi.org/10.1007/978-0-387-40065-5)
 - Kim, J., & Torquato, S. (2019). New tessellation-based procedure to design perfectly hyperuniform disordered dispersions for materials discovery. *Acta Materialia*, 168, 143–151. [https://doi.org/10.1016/j.actamat.2019.01.026](https://doi.org/10.1016/j.actamat.2019.01.026)

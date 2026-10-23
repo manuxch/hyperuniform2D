@@ -174,7 +174,13 @@ int main(int argc, char* argv[]) {
     }
     if (arg == "--help" || arg == "-h") {
         std::cout << "Usage: hyper2D [parameter_file]   (default: params.in)\n"
-                     "       hyper2D --version\n";
+                     "       hyper2D --version\n"
+                     "\n"
+                     "mode: lattice     stealthy hyperuniform binary pattern on an Nx x Ny lattice (annealing)\n"
+                     "mode: continuum   point pattern in an Lx x Ly box (L-BFGS); needs Lx, Ly, rho_O, kappa or chi\n"
+                     "obs_file          writes the obstacle file of hyperGalton2D (format version 1)\n"
+                     "Examples: params.in, examples/continuum.in, examples/lattice_control.in\n"
+                     "Tools:    scripts/obs_tools.py (validate, topgm), scripts/analyze_obs.py, scripts/test_hyper2D.py\n";
         return 0;
     }
     const std::string parameter_file = arg.empty() ? "params.in" : arg;
