@@ -14,9 +14,18 @@ in any box Lx x Ly. Lengths in grain diameters; wave vectors in d^-1.
        - direct count over random window centres, as an independent check (and the only estimate when the
          pattern is not periodic in y);
      and the exponent alpha of sigma_N^2 ~ R^alpha (Poisson 2, stealthy hyperuniform 1);
-  4. the pair correlation g(r).
+  4. the pair correlation g(r);
+  5. the effective-hyperuniformity index of Torquato (2018), H = S(0) / S(k_peak), with S(0) from a fit
+     S = S0 + c k^2 at small k, |k| <= K/8 by default (H <~ 1e-4: effectively hyperuniform), shown next to
+     residual_S. On a lattice control S grows faster than k^2 inside the mask, and a fit up to K/2 gives a
+     negative S0;
+  6. with --surface R_MAX, the surface-area coefficient of the number variance, sigma_N^2 ~ Lambda R / D
+     (Torquato and Stillinger 2003), averaged over R in [rmin, R_MAX]: Lambda / phi^(1/2) = <sigma^2 / R> 2 /
+     sqrt(pi rho), independent of D, and Lambda with D the nearest-neighbour distance. The pattern is taken as
+     periodic in x and y, so any R is allowed (a disk in its periodic replica); for a lattice this is the
+     lattice value (triangular 0.508347, square 0.516401, i.e. Lambda = 0.4576 with D = a).
 
-  python3 scripts/analyze_obs.py file.obs [--save fig.pdf] [--no-show] [--write-alpha]
+  python3 scripts/analyze_obs.py file.obs [--save fig.pdf] [--no-show] [--write-alpha] [--surface R_MAX]
 """
 import argparse
 import math
@@ -68,6 +77,44 @@ def number_variance_spectral(S_half, k_half, N, A, radii):
         total = A * np.pi * R * R - (np.pi * R * R) ** 2  # sum over every k != 0
         var.append(N / A ** 2 * (2.0 * np.sum(S_half * m2) + (total - inside)))
     return np.array(var)
+
+
+def number_variance_periodic(S_half, k_half, N, A, radii, k_max):
+    """sigma_N^2(R) of a pattern periodic in x and y (a disk in its periodic replica, so R is not limited by the
+    box), from S on the half plane up to k_max. The modes beyond k_max are closed with S = 1 (their mean) and
+    the sum replaced by an integral, which is exact in closed form:
+        rho / (2 pi) int_{k_max}^inf k m(k)^2 dk = pi rho R^2 [J0^2 + J1^2](k_max R),
+    using int_x^inf J1(u)^2 / u du = [J0(x)^2 + J1(x)^2] / 2."""
+    from scipy.special import j0, j1
+    rho = N / A
+    keep = S_half > 1e-12 * N  # zeros contribute nothing (a lattice has only its Bragg peaks)
+    S, k = S_half[keep], k_half[keep]
+    return np.array([2.0 * N / A ** 2 * np.sum(S * disk_ft(k, R) ** 2)
+                     + np.pi * rho * R * R * (j0(k_max * R) ** 2 + j1(k_max * R) ** 2) for R in radii])
+
+
+def surface_coefficient(radii, var, rho, D):
+    """Average surface-area coefficient over the radii (Torquato and Stillinger 2003): sigma^2 = Lambda(R) R / D.
+    Returns (Lambda / phi^(1/2), Lambda), phi = rho pi D^2 / 4; the first does not depend on D."""
+    m = np.mean(var / radii)
+    return m * 2.0 / math.sqrt(math.pi * rho), m * D
+
+
+def hyperuniformity_index(k, S, k_rad, S_rad, k_fit):
+    """H = S(0) / S(k_peak) (Torquato 2018). S(0) from a least-squares fit S = S0 + c k^2 over the modes with
+    0 < |k| <= k_fit (extended to the third shell if it holds fewer); S(k_peak) the largest radially averaged S.
+    Returns H, S0, its standard error, S_peak and k_peak; H is computed with max(S0, 0)."""
+    shells = np.unique(np.round(k[k > 0], 12))
+    if np.sum(shells <= k_fit) < 3:  # at least three shells for a two-parameter fit
+        k_fit = shells[min(2, len(shells) - 1)]
+    sel = (k > 0) & (k <= k_fit)
+    X = np.c_[np.ones(sel.sum()), k[sel] ** 2]
+    coef, res, *_ = np.linalg.lstsq(X, S[sel], rcond=None)
+    dof = max(sel.sum() - 2, 1)
+    s2 = (res[0] if len(res) else np.sum((S[sel] - X @ coef) ** 2)) / dof
+    se = math.sqrt(s2 * np.linalg.inv(X.T @ X)[0, 0])
+    i = int(np.nanargmax(S_rad))
+    return max(coef[0], 0.0) / S_rad[i], coef[0], se, S_rad[i], k_rad[i]
 
 
 def number_variance_count(xy, Lx, Ly, radii, samples, rng, periodic_y):
@@ -164,11 +211,18 @@ def analyze(path, args):
         S_rad = np.bincount(b, weights=S) / cnt
     ok = cnt > 0
     k_rad, S_rad = k_rad[ok], S_rad[ok]
+    k_fit = args.k_fit if args.k_fit else (K / 8.0 if K else np.pi / (4.0 * a))
+    H, S0, S0_se, S_peak, k_peak = hyperuniformity_index(ks, S, k_rad, S_rad, k_fit)
+    res_hdr = h.get("residual_S")
+    print(f"  H = S(0)/S(k_peak) = {H:.3e} (Torquato 2018; <~ 1e-4 effectively hyperuniform): S(0) = {S0:.3e} "
+          f"+- {S0_se:.1e} from S0 + c k^2 on |k| <= {k_fit:.4g}, S(k_peak) = {S_peak:.4g} at k = {k_peak:.4g}"
+          + (f"; header residual_S = {res_hdr}" if res_hdr else ""))
+    report.update(H=H, S0=S0, S0_se=S0_se, S_peak=S_peak, k_peak=k_peak)
 
     # Number variance
     rmin = args.rmin if args.rmin else a
     rmax = args.rmax if args.rmax else min(Lx, Ly) / 4.0
-    if not (0 < rmin < rmax <= min(Lx, Ly) / 2):
+    if not (0 < rmin < rmax <= min(Lx, Ly) / 2) or (args.surface and args.surface <= rmin):
         sys.exit(f"Error: need 0 < rmin < rmax <= min(Lx, Ly)/2 (got {rmin}, {rmax})")
     radii = np.linspace(rmin, rmax, args.n_radii)
     rng = np.random.default_rng(args.seed)
@@ -186,6 +240,20 @@ def analyze(path, args):
               f"{args.samples} windows away from the y walls)")
     alpha_count = np.polyfit(np.log(radii), np.log(var_count), 1)[0]
     print("    [Poisson 2 | hyperuniform < 2 | stealthy ~ 1]")
+    d_nn = float(h["d_min"]) if float(h.get("d_min", 0)) > 0 else a
+    lam_phi, lam_D = surface_coefficient(radii, var_spec if var_spec is not None else var_count, rho, d_nn)
+    print(f"    surface coefficient on that range: Lambda/phi^(1/2) = {lam_phi:.4f}, Lambda = {lam_D:.4f} (D = d_min = {d_nn:.4g})")
+    report.update(lambda_phi=lam_phi, lambda_D=lam_D)
+    if args.surface:
+        if not periodic_y:
+            sys.exit("Error: --surface needs a pattern periodic in x and y (--periodic xy)")
+        radii_s = np.linspace(rmin, args.surface, args.surface_radii)
+        var_s = number_variance_periodic(S, ks, N, A, radii_s, k_max)
+        lam_phi, lam_D = surface_coefficient(radii_s, var_s, rho, d_nn)
+        print(f"  surface coefficient on R in [{rmin:.4g}, {args.surface:.4g}] ({args.surface_radii} radii, periodic "
+              f"replica, k_max = {k_max:.4g}): Lambda/phi^(1/2) = {lam_phi:.6f}, Lambda = {lam_D:.6f} (D = {d_nn:.6g})")
+        print("    [triangular lattice 0.508347, square 0.516401 (Lambda = 0.4576 with D = a); Torquato and Stillinger 2003]")
+        report.update(surface_phi=lam_phi, surface_D=lam_D)
     report.update(alpha=alpha, alpha_count=alpha_count, radii=radii, var_spec=var_spec, var_count=var_count)
 
     r, g = pair_correlation(xy, Lx, Ly, args.gr_rmax * a, args.gr_bins, periodic_y)
@@ -253,6 +321,11 @@ def build_parser():
                    help="auto: x and y for files of hyperuniform2D (generated on the torus), else x only")
     p.add_argument("--gr-rmax", type=float, default=4.0, help="g(r) up to this many mean spacings")
     p.add_argument("--gr-bins", type=int, default=120)
+    p.add_argument("--k-fit", type=float, default=None,
+                   help="largest |k| (1/d) of the fit S0 + c k^2 that gives S(0) for H (default K/8, or pi/4a)")
+    p.add_argument("--surface", type=float, default=None, metavar="R_MAX",
+                   help="surface-area coefficient Lambda averaged over R in [rmin, R_MAX] (periodic replica)")
+    p.add_argument("--surface-radii", type=int, default=20000)
     p.add_argument("--write-alpha", action="store_true", help="write alpha_numvar into the header (body untouched)")
     p.add_argument("--save", help="save the figure to this file")
     p.add_argument("--no-show", action="store_true", help="do not open the interactive window")

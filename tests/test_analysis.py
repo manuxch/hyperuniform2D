@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Tests of scripts/analyze_obs.py: spectral number variance against a direct count and against the Poisson
-value, the Parseval tail, a stealthy pattern written by hyper2D, and --write-alpha.
+value, the Parseval tail, the index H, the surface-area coefficient of the triangular and square lattices, a stealthy
+pattern written by hyper2D, and --write-alpha.
 
   python3 tests/test_analysis.py path/to/hyper2D path/to/scripts
 """
@@ -62,6 +63,23 @@ def main():
               "Poisson: spectral sigma^2 = direct count within 5 %")
         check(np.max(np.abs(rep["var_spec"] / expected - 1)) < 0.12 and 1.8 < rep["alpha"] < 2.2,
               f"Poisson: sigma^2 = rho pi R^2 (1 - pi R^2/A) within 12 %, alpha = {rep['alpha']:.3f}")
+        check(rep["H"] > 0.3, f"Poisson: H = S(0)/S(k_peak) = {rep['H']:.2f} is of order 1")
+
+        # Surface-area coefficient of lattices (Torquato and Stillinger 2003), from the periodic replica: the
+        # triangular lattice of the format example of hyperGalton2D (a = 2, 8 x 8 cells) and a square lattice
+        tri = os.path.join(d, "tri.obs")
+        write_points(tri, [(2.0 * i + (j % 2), math.sqrt(3.0) * j) for j in range(8) for i in range(8)], 16.0, 8 * math.sqrt(3.0))
+        # k_max a >~ 400 and R up to ~1600 a are needed for 5 digits (Lambda(R) oscillates)
+        rep, out = run(ana, [tri, "--periodic", "xy", "--kmax", "200", "--rmin", "2", "--rmax", "6",
+                             "--surface", "3200", "--surface-radii", "32000"])
+        check(abs(rep["surface_phi"] - 0.508347) < 3e-5, f"triangular lattice: Lambda/phi^(1/2) = {rep['surface_phi']:.6f} (0.508347)")
+        sq = os.path.join(d, "square.obs")
+        write_points(sq, [(2.0 * i, 2.0 * j) for j in range(8) for i in range(8)], 16.0, 16.0)
+        rep, out = run(ana, [sq, "--periodic", "xy", "--kmax", "200", "--rmin", "2", "--rmax", "6",
+                             "--surface", "3200", "--surface-radii", "32000"])
+        check(abs(rep["surface_D"] - 0.4576) < 1e-4 and abs(rep["surface_phi"] - 0.516401) < 3e-5,
+              f"square lattice: Lambda = {rep['surface_D']:.5f} with D = a (0.4576), Lambda/phi^(1/2) = {rep['surface_phi']:.6f} (0.516401)")
+
         # The Parseval tail makes the result nearly independent of k_max
         r1, _ = run(ana, [poisson, "--periodic", "xy", "--rmin", "1", "--rmax", "3", "--kmax", "10"])
         r2, _ = run(ana, [poisson, "--periodic", "xy", "--rmin", "1", "--rmax", "3", "--kmax", "30"])
@@ -80,6 +98,7 @@ def main():
               and f"{o.header['n_constrained_modes']} half-plane modes" in out,
               "stealthy: the circle |k| <= K holds n_constrained_modes modes")
         check(rep["S_mask_mean"] < 1e-18, f"stealthy: <S>_mask = {rep['S_mask_mean']:.2e}")
+        check(rep["H"] < 1e-4, f"stealthy: H = {rep['H']:.1e} below 1e-4 (S(0) fit {rep['S0']:.1e})")
         check(0.85 < rep["alpha"] < 1.15 and np.max(np.abs(rep["var_spec"] / rep["var_count"] - 1)) < 0.06,
               f"stealthy: alpha = {rep['alpha']:.3f}, direct count agrees within 6 %")
         check(rep["g"][rep["r"] < 0.1].sum() == 0, "g(r) = 0 below the hard core (0.2 d)")

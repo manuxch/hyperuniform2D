@@ -421,6 +421,10 @@ python3 scripts/analyze_obs.py stealthy_rho0.2_Lx320_Ly76.5625_arr000.obs --save
 3. **Number variance, direct count.** Counts in `--samples` disks with random centres, as an independent check; it is the only estimate for files that are not periodic in *y* (`--periodic x`, or files from other generators).
 4. **Exponent and pair correlation.** α of σ<sub>*N*</sub>² ∼ *R*<sup>α</sup> on [`--rmin`, `--rmax`] (default [*a*, min(*L*<sub>*x*</sub>, *L*<sub>*y*</sub>)/4]), and *g*(*r*) up to `--gr-rmax` mean spacings.
 5. **`--write-alpha`** writes `alpha_numvar` into the header. The body, and therefore `sha256_body`, is not touched, and the file stays valid.
+6. **Effective hyperuniformity.** H = *S*(0)/*S*(*k*<sub>peak</sub>) (Torquato 2018), next to the header `residual_S`; *S*(0) comes from a fit *S*<sub>0</sub> + *c k*² on |**k**| ≤ *K*/8 (`--k-fit`). H ≲ 10⁻⁴ means effectively hyperuniform.
+7. **Surface-area coefficient.** σ<sub>*N*</sub>² ≈ Λ *R*/*D* (Torquato and Stillinger 2003): Λ/φ<sup>1/2</sup> = ⟨σ<sub>*N*</sub>²/*R*⟩ 2/√(πρ) does not depend on *D*. `--surface R_MAX` averages it up to *R* = `R_MAX` in the periodic replica of the pattern, closing the modes beyond `--kmax` exactly with π*ρR*²[*J*<sub>0</sub>² + *J*<sub>1</sub>²](*k*<sub>max</sub>*R*). It reproduces the triangular (0.508347) and square (0.516401) lattices with `--kmax` ≳ 400/*a* and `R_MAX` ≈ 1600 *a*.
+
+`scripts/cross_validate.py` compares two families of files at equal *K* and ρ<sub>O</sub>, each a set of realizations (e.g. the continuum pattern and its lattice control): the statistics above in units of *k*/*K* and *r*/*a*, as means with standard errors, and a *z* score per bin. The lattice ↔ continuum validation of 2026-10-30 is in [`docs/validacion-cruzada.md`](docs/validacion-cruzada.md) (in Spanish).
 
 For the continuum pattern of 4 900 points at χ = 0.3 (seed 11): the mask holds 2 939 modes, as declared, with ⟨*S*⟩ = 4.9 × 10⁻²¹ and the same value in the three sectors; α = 0.998, and the direct count agrees with the spectral variance within 1.7 %. For the lattice control of 160 × 40 *d* (occupation 0.02): ⟨*S*⟩ = 3.8 × 10⁻³ and α = 0.985.
 

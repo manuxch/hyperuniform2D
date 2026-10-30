@@ -254,7 +254,13 @@ primera etapa con los núcleos nuevos: no conviene (4900 puntos: 5,1–9,7 s con
 - Continuo, χ_point = 0,1, 0,3, 0,45: *S*(*k*) = 0 en la máscara, α ≈ 1, hueco de exclusión en *g*(*r*).
 - **Isotropía en cajas no cuadradas** (*L*ₓ/*L*ᵧ = 1, 2, 4 y el rango de la campaña): *S*(*k*) y σ²(*R*)
   sin dependencia de la dirección. Comparar con el atajo de índices, que debe mostrar anisotropía.
-- **Red contra continuo a igual *K* (κ) e igual ρ_O**, nunca a igual χ.
+- **Red contra continuo a igual *K* (κ) e igual ρ_O**, nunca a igual χ. ✅ Hecha el 2026-10-30, 16 realizaciones
+  por familia a κ = 0,618 y 0,757: [`validacion-cruzada.md`](validacion-cruzada.md). Las dos familias son
+  hiperuniformes (α ≈ 0,996, H = *S*(0)/*S*(*k*_pico) ≤ 1,3·10⁻⁵ ≪ 10⁻⁴). A χ = 0,45 coinciden salvo por el
+  residuo de la red, que queda en 0,0114, **por encima del umbral 0,011**. A χ = 0,3 **no coinciden** fuera de la
+  máscara (la red tiene un pico *S* = 1,37 en 1,08 *K* y Λ un 4 % mayor), y no por el residuo: los patrones de red
+  relajados a *S* = 0 en el continuo conservan esa estructura. Es la dependencia con el protocolo de los
+  estados fundamentales degenerados. Controles de Λ: triangular 0,50837 (0,508347), cuadrada 0,45765 (0,4576).
 - Con núcleo duro: residuo y fracción de realizaciones afectadas en función de 2*R*/*a*.
 
 ## Control en red *stealthy* (análisis del 2026-10-22)
@@ -284,6 +290,10 @@ al dar `R`). *a*_red = *a*√ρ.
 
 **Umbral aceptado (2026-10-22): `residual_S` ≤ 0,011** para el control en red. Con ρ = 0,02 cubre los tres χ
 de la campaña (0,0040 con χ = 0,3; 0,011 con χ = 0,45).
+
+**Revisión (2026-10-30):** con 16 realizaciones, χ = 0,45 da `residual_S` = 0,01142 ± 0,00003 (todas entre 0,0112
+y 0,0116): el umbral 0,011 no se cumple con ρ = 0,02. Hay que subirlo a 0,012 o usar ρ ≈ 0,01 para χ = 0,45
+([`validacion-cruzada.md`](validacion-cruzada.md)).
 
 Pendiente: el costo de *S*(*k*) y de las tablas en redes de 10⁶–10⁷ sitios (la DFT de *S*(*k*) es
 O(*N*ₓ*N*ᵧ(*N*ₓ + *N*ᵧ)); pasar a FFT si hace falta).
