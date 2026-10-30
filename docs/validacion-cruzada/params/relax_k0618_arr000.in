@@ -1,0 +1,47 @@
+# hyper2D 2.2 parameter file: continuum stealthy hyperuniform pattern for hyperGalton2D.
+# Run:      ./build/hyper2D examples/continuum.in
+# Check:    python3 scripts/obs_tools.py validate stealthy_rho0.2_Lx320_Ly76.5625_arr000.obs
+# Analyse:  python3 scripts/analyze_obs.py stealthy_rho0.2_Lx320_Ly76.5625_arr000.obs
+#
+# 4 900 obstacles in a periodic 320 x 76.5625 box (grain diameters), density 0.2 (mean spacing 2.24 d),
+# radius 0.2, so the free gap between obstacles is about 0.84 d; chi_point = 0.3.
+# Paired by kappa with examples/lattice_control.in (same box, density, radius and kappa).
+# Measured (Ryzen 5 5600X, 6 threads): a few seconds; residual <S>_mask below 1e-20, alpha ~ 1.
+
+mode: continuum
+
+# --- Box and obstacles (grain diameter d = 1) ----------------------------------------------
+# Number density of obstacles; N = round(rho_O Lx Ly)
+# Obstacle radius; no two centres closer than 2R (hard core)
+R: 0.2
+# Declared in the obstacle file (the pattern is generated on the torus)
+boundary: periodic_x
+
+# --- Mask -------------------------------------------------------------------------------------
+# kappa = K a / 2pi, a = rho_O^(-1/2) = 2.24; chi_point ~ pi kappa^2 / 4 (0.618 -> 0.30, 0.757 -> 0.45, 0.357 -> 0.10)
+kappa: 0.618
+# Mode weights w(k) ~ |k|^(-weight_power): 2 converges several times faster than 0
+weight_power: 2
+
+# --- Minimization -----------------------------------------------------------------------------
+minimizer: lbfgs
+# Stop when the mean S(k) in the mask is below this
+residual_tol: 1e-20
+max_iterations: 100000
+
+# --- Run --------------------------------------------------------------------------------------
+seed: 1729
+init_file: ../lat0/stealthy_rho0.199984_Lx320_Ly76.5217_arr000.obs
+arr_index: 0
+# Threads: 0 = automatic (min(4, CPUs available)); best = number of physical cores
+num_threads: 2
+# Number of independent realizations (seeds seed, seed + 1, ...); file names get _arrNNN
+realizations: 1
+
+# --- Output -----------------------------------------------------------------------------------
+# auto: stealthy_rho<rho>_Lx<Lx>_Ly<Ly>_arr<NNN>.obs, plus the .sk companion
+obs_file: auto
+# Minimization log: iteration, objective, largest gradient component
+annealing_file: relax_min.dat
+# Radially averaged S(k) up to 3K, k in 1/d
+sk_file: relax_sk.dat

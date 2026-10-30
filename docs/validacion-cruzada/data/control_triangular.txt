@@ -1,0 +1,9 @@
+# python3 scripts/analyze_obs.py example_obstacles.obs --periodic xy --kmax 200 --rmin 2 --rmax 6 --surface 3200 --surface-radii 64000 --no-show
+/home/manuel/granular/hyperGalton2D/docs/formats/example_obstacles.obs: 64 obstacles in 16 x 13.8564, rho_O = 0.288675, mean spacing a = 1.86121; mode continuum, class lattice, periodic x and y
+  H = S(0)/S(k_peak) = 0.000e+00 (Torquato 2018; <~ 1e-4 effectively hyperuniform): S(0) = -4.333e-15 +- 4.1e-30 from S0 + c k^2 on |k| <= 0.422, S(k_peak) = 6.4 at k = 3.795
+  number variance on R in [2, 6]: alpha = 1.165 (spectral, exact); direct count (20000 windows) agrees within 2.9 %
+    [Poisson 2 | hyperuniform < 2 | stealthy ~ 1]
+    surface coefficient on that range: Lambda/phi^(1/2) = 0.5174, Lambda = 0.4927 (D = d_min = 2)
+  surface coefficient on R in [2, 3200] (64000 radii, periodic replica, k_max = 200): Lambda/phi^(1/2) = 0.508367, Lambda = 0.484125 (D = 2)
+    [triangular lattice 0.508347, square 0.516401 (Lambda = 0.4576 with D = a); Torquato and Stillinger 2003]
+  g(r): first nonzero bin at r = 1.083 a

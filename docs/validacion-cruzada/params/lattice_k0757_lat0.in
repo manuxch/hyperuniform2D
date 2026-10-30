@@ -1,0 +1,48 @@
+# hyper2D 2.2 parameter file: lattice control of examples/continuum.in for hyperGalton2D.
+# Run:      ./build/hyper2D examples/lattice_control.in
+# Check:    python3 scripts/obs_tools.py validate stealthy_*_arr000.obs
+#
+# Same box (320 x 76.5625 d), obstacle density (rho_O = 0.2), radius (R = 0.2) and kappa (0.618) as the continuum
+# example: the two families are paired by kappa, never by chi (the lattice chi is about twice chi_point).
+# A fine lattice (2 % of the sites occupied) keeps the lattice residual small: about 0.004 here, and
+# 0.011 at kappa = 0.757 (chi_point = 0.45), the largest residual accepted for the campaign.
+# The lattice (1012 x 242 sites, spacing 0.316 d) is derived from Lx, Ly, rho_O and density; Lx is kept
+# exact, Ly is rounded to a multiple of the spacing (76.52), and the file has 4 897 obstacles.
+# Measured (Ryzen 5 5600X): about a minute; residual_S 0.0039, alpha ~ 1.
+
+mode: lattice
+
+# --- Box and obstacles (grain diameter d = 1) ----------------------------------------------
+Lx: 320
+Ly: 76.5625
+rho_O: 0.2
+# Fraction of occupied sites: sets the lattice spacing, sqrt(density / rho_O)
+density: 0.02
+# Obstacle radius; implies an exclusion of 2R / lattice spacing between occupied sites
+R: 0.2
+boundary: periodic_x
+
+# --- Mask -------------------------------------------------------------------------------------
+kappa: 0.757
+weight_power: 2
+
+# --- Cooling schedule -------------------------------------------------------------------------
+T_initial: 0
+T_final: 0.001
+cooling_rate: 0.97
+steps_per_temp: 20000
+local_fraction: 0.5
+local_radius: 1
+quench_steps: 400000
+
+# --- Run --------------------------------------------------------------------------------------
+seed: 1729
+arr_index: 0
+num_threads: 3
+realizations: 4
+
+# --- Output -----------------------------------------------------------------------------------
+obs_file: auto
+output_file: lattice_control.pgm
+annealing_file: lattice_control_ann.dat
+sk_file: lattice_control_sk.dat

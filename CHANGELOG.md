@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Effective-hyperuniformity index** H = S(0)/S(k_peak) (Torquato 2018) in `scripts/analyze_obs.py`, printed next to the header `residual_S`. S(0) comes from a least-squares fit S0 + c k² on |k| ≤ K/8 (`--k-fit`; up to K/2 the fit is biased negative on a lattice control, whose S grows faster than k² in the mask); H uses max(S0, 0). H ≲ 1e-4 means effectively hyperuniform.
+- **Surface-area coefficient** of the number variance, σ²_N ≈ Λ R/D (Torquato and Stillinger 2003). `analyze_obs.py` prints Λ/φ^{1/2} = ⟨σ²/R⟩ 2/√(πρ), which does not depend on D, and Λ with D = d_min. With `--surface R_MAX` it averages over R up to R_MAX in the periodic replica of the pattern, with the modes beyond k_max closed exactly, πρR²[J0² + J1²](k_max R). It reproduces the lattice values: triangular 0.508347, square 0.516401 (Λ = 0.4576 with D = a).
+- **`scripts/cross_validate.py`.** Compares two families of obstacle files at equal K and ρ_O, each a set of realizations: S(k) in bins of k/K, ⟨S⟩_mask, H, σ²_N(R), α, Λ, the distribution function of nearest-neighbour distances and the cumulative coordination (integrated g(r); lattice distances are discrete, so histograms are not compared bin by bin), as means with their standard errors and a z score per bin. Writes a table, JSON summaries and a figure; `--no-validate` admits derived files.
+- **Tests** of H (Poisson, stealthy) and of the surface coefficient of the triangular lattice of the hyperGalton2D format example and of the square lattice.
+- **`docs/validacion-cruzada.md`**: lattice ↔ continuum cross-validation at equal κ (the pending item of hyperGalton2D milestone M0a), with 16 realizations per family at κ = 0.618 and 0.757, and two controls: continuum patterns rounded to the lattice (`docs/validacion-cruzada/snap_to_lattice.py`) and lattice patterns relaxed in the continuum. Both families are hyperuniform (H ≤ 1.3e-5). At χ_point = 0.45 they agree except for the lattice residual, 0.0114, above the accepted 0.011. At χ_point = 0.3 they differ outside the mask (lattice: S = 1.37 at 1.08 K, Λ 4 % larger), a difference of the preparation protocol that survives relaxing the lattice patterns to S = 0.
+
 ## [2.2.0] — 2026-10-22
 
 Feature release. Existing parameter files run unchanged, and a square lattice with the same seed gives the
